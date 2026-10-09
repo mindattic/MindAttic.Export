@@ -39,7 +39,9 @@ public sealed class EpubRenderer : IManuscriptRenderer
             w.Write("application/epub+zip");
 
         WriteEntry(zip, "META-INF/container.xml", ContainerXml());
-        WriteEntry(zip, "OEBPS/styles.css", StylesCss());
+        // Prose book stylesheet unchanged; the document-block rules are appended only for
+        // manuscripts that use document blocks, so a book's EPUB stays byte-identical.
+        WriteEntry(zip, "OEBPS/styles.css", UsesDocumentBlocks(chapters) ? StylesCss() + DocumentCss() : StylesCss());
         WriteEntry(zip, "OEBPS/title.xhtml", TitlePageXhtml(manuscript, authorName));
         WriteEntry(zip, "OEBPS/toc.xhtml", TocXhtml(manuscript.Title, chapters));
 
@@ -87,6 +89,10 @@ public sealed class EpubRenderer : IManuscriptRenderer
         h3.sub-heading { font-size: 1.1em; margin: 1.6em 0 0.8em; text-align: center; }
         p { margin: 0.4em 0; }
         em { font-style: italic; }
+        """;
+
+    private static string DocumentCss() => """
+
         h3.doc-heading, h4.doc-heading, h5.doc-heading { margin: 1.4em 0 0.6em; }
         p.hanging { padding-left: 2em; text-indent: -2em; }
         p.math { text-align: center; margin: 0.8em 0; }
@@ -97,6 +103,17 @@ public sealed class EpubRenderer : IManuscriptRenderer
         blockquote { margin: 1em 2em; }
         p.rule { text-align: center; }
         """;
+
+    /// <summary>True when any chapter holds a block that only Markdown documents produce.</summary>
+    internal static bool UsesDocumentBlocks(IEnumerable<Chapter> chapters) =>
+        chapters.SelectMany(c => c.Blocks).Any(IsDocumentBlock);
+
+    private static bool IsDocumentBlock(Block b) => b switch
+    {
+        HeadingBlock or ListBlock or TableBlock or MathBlock or RuleBlock or QuoteBlock => true,
+        ParagraphBlock p => p.Role != ParagraphRole.Body || p.Spans is not null,
+        _ => false
+    };
 
     private static string TitlePageXhtml(Manuscript m, string author)
     {
