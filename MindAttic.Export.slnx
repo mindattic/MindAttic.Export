@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="MindAttic.Export.Cli/MindAttic.Export.Cli.csproj" />
+  <Project Path="MindAttic.Export.Tests/MindAttic.Export.Tests.csproj" />
+  <Project Path="MindAttic.Export/MindAttic.Export.csproj" />
+</Solution>

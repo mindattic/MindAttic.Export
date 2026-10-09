@@ -1,0 +1,7 @@
+﻿bin/
+obj/
+*.user
+.vs/
+out/
+[Tt]est[Rr]esults/
+.claude/quicksave.md
