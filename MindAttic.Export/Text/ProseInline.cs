@@ -84,6 +84,17 @@ public static class ProseInline
             if (Match(text, i, "**", style, Style.Bold, out var boldLen))
             { Flush(); style ^= Style.Bold; i += boldLen; continue; }
 
+            // A "**" that opened nothing is two literal asterisks. Falling through would let the
+            // single-"*" rule below pair the two halves of it into an empty italic span, and both
+            // asterisks would vanish.
+            if (StartsWith(text, i, "**"))
+            {
+                if (buffer.Length == 0) runStart = i;
+                buffer.Append("**");
+                i += 2;
+                continue;
+            }
+
             if (Match(text, i, "~~", style, Style.Strikethrough, out var strikeLen))
             { Flush(); style ^= Style.Strikethrough; i += strikeLen; continue; }
 

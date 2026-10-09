@@ -74,7 +74,7 @@ public sealed class DocxRenderer : IManuscriptRenderer
             // pages — required for KDP paperback so the gutter is always on the spine side.
             var settingsPart = main.AddNewPart<DocumentSettingsPart>();
             settingsPart.Settings = options.Profile == PageProfile.Trade6x9
-                ? new Settings(new UpdateFieldsOnOpen { Val = false }, new MirrorMargins())
+                ? new Settings(new MirrorMargins(), new UpdateFieldsOnOpen { Val = false })
                 : new Settings(new UpdateFieldsOnOpen { Val = false });
             settingsPart.Settings.Save();
 
@@ -350,8 +350,8 @@ public sealed class DocxRenderer : IManuscriptRenderer
                 new SpacingBetweenLines { Before = "3600", After = "0" }));
 
             var kanji = new Paragraph(new ParagraphProperties(
-                new Justification { Val = JustificationValues.Center },
-                new SpacingBetweenLines { Before = "0", After = "360" }));
+                new SpacingBetweenLines { Before = "0", After = "360" },
+                new Justification { Val = JustificationValues.Center }));
             kanji.AppendChild(KanjiRun(lines[0]));
             yield return kanji;
 
@@ -363,9 +363,9 @@ public sealed class DocxRenderer : IManuscriptRenderer
         {
             var rPr = new RunProperties(
                 new RunFonts { Ascii = KanjiFont, HighAnsi = KanjiFont, EastAsia = KanjiFont, ComplexScript = KanjiFont },
+                new Strike(),
                 new FontSize { Val = Kanji72 },
-                new FontSizeComplexScript { Val = Kanji72 },
-                new Strike());
+                new FontSizeComplexScript { Val = Kanji72 });
             var run = new Run(rPr);
             run.AppendChild(new WText(text) { Space = SpaceProcessingModeValues.Preserve });
             return run;
@@ -498,7 +498,7 @@ public sealed class DocxRenderer : IManuscriptRenderer
 
         private static Run RunNP(RunProperties extraRpr, params OpenXmlElement[] children)
         {
-            extraRpr.PrependChild(new NoProof());
+            extraRpr.AppendChild(new NoProof()); // CT_RPr: b, bCs, then noProof
             var r = new Run(extraRpr);
             foreach (var c in children) r.AppendChild(c);
             return r;
@@ -529,8 +529,8 @@ public sealed class DocxRenderer : IManuscriptRenderer
         public Paragraph BodyParagraph(string text)
         {
             var p = new Paragraph(new ParagraphProperties(
-                new Justification { Val = JustificationValues.Both },
-                new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, After = "160" }));
+                new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, After = "160" },
+                new Justification { Val = JustificationValues.Both }));
             foreach (var run in InlineRuns(text)) p.AppendChild(run);
             return p;
         }
@@ -544,15 +544,15 @@ public sealed class DocxRenderer : IManuscriptRenderer
             ParagraphProperties props = block.Role switch
             {
                 ParagraphRole.Hanging => new ParagraphProperties(
+                    new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, After = "160" },
                     new Indentation { Left = "720", Hanging = "720" },
-                    new Justification { Val = JustificationValues.Left },
-                    new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, After = "160" }),
+                    new Justification { Val = JustificationValues.Left }),
                 ParagraphRole.Preformatted => new ParagraphProperties(
-                    new Justification { Val = JustificationValues.Left },
-                    new SpacingBetweenLines { After = "160" }),
+                    new SpacingBetweenLines { After = "160" },
+                    new Justification { Val = JustificationValues.Left }),
                 _ => new ParagraphProperties(
-                    new Justification { Val = JustificationValues.Both },
-                    new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, After = "160" })
+                    new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, After = "160" },
+                    new Justification { Val = JustificationValues.Both })
             };
             var p = new Paragraph(props);
             if (block.Role == ParagraphRole.Preformatted)
@@ -595,9 +595,9 @@ public sealed class DocxRenderer : IManuscriptRenderer
                         wordCount += ReadingInfo.CountWords(string.Concat(item.Runs.Select(s => s.Text)));
                         var p = new Paragraph(new ParagraphProperties(
                             new Tabs(new TabStop { Val = TabStopValues.Left, Position = 720 }),
+                            new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, After = "80" },
                             new Indentation { Left = "720", Hanging = "360" },
-                            new Justification { Val = JustificationValues.Left },
-                            new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, After = "80" }));
+                            new Justification { Val = JustificationValues.Left }));
                         p.AppendChild(MakeRun(l.Ordered ? $"{l.Start + i}." : "•", Body12));
                         p.AppendChild(new Run(new TabChar()));
                         foreach (var run in SpanRuns(item.Runs, Body12)) p.AppendChild(run);
@@ -611,9 +611,9 @@ public sealed class DocxRenderer : IManuscriptRenderer
                         {
                             wordCount += ReadingInfo.CountWords(string.Concat(qp.Runs.Select(s => s.Text)));
                             var p = new Paragraph(new ParagraphProperties(
+                                new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, Before = "80", After = "160" },
                                 new Indentation { Left = "720", Right = "720" },
-                                new Justification { Val = JustificationValues.Both },
-                                new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, Before = "80", After = "160" }));
+                                new Justification { Val = JustificationValues.Both }));
                             foreach (var run in SpanRuns(qp.Runs, Body12)) p.AppendChild(run);
                             output.Add(p);
                         }
@@ -627,8 +627,8 @@ public sealed class DocxRenderer : IManuscriptRenderer
                 case MathBlock m:
                 {
                     var p = new Paragraph(new ParagraphProperties(
-                        new Justification { Val = JustificationValues.Center },
-                        new SpacingBetweenLines { Before = "120", After = "200" }));
+                        new SpacingBetweenLines { Before = "120", After = "200" },
+                        new Justification { Val = JustificationValues.Center }));
                     foreach (var run in SpanRuns(m.Spans, Body12)) p.AppendChild(run);
                     output.Add(p);
                     break;
@@ -671,8 +671,8 @@ public sealed class DocxRenderer : IManuscriptRenderer
                     var cellBlock = c < row.Cells.Count ? row.Cells[c] : new ParagraphBlock("");
                     wordCount += ReadingInfo.CountWords(string.Concat(cellBlock.Runs.Select(s => s.Text)));
                     var p = new Paragraph(new ParagraphProperties(
-                        new Justification { Val = JustificationValues.Left },
-                        new SpacingBetweenLines { After = "0" }));
+                        new SpacingBetweenLines { After = "0" },
+                        new Justification { Val = JustificationValues.Left }));
                     foreach (var run in SpanRuns(cellBlock.Runs, Table10, forceBold: row.IsHeader)) p.AppendChild(run);
                     var cellProps = new TableCellProperties();
                     if (row.IsHeader) cellProps.AppendChild(new Shading { Val = ShadingPatternValues.Clear, Fill = "EDEDED" });
@@ -724,14 +724,14 @@ public sealed class DocxRenderer : IManuscriptRenderer
                             bool underline = false, bool strike = false, string? font = null)
         {
             var face = font ?? serif;
-            var rPr = new RunProperties(
-                new RunFonts { Ascii = face, HighAnsi = face, ComplexScript = face },
-                new FontSize { Val = halfPt },
-                new FontSizeComplexScript { Val = halfPt });
+            // CT_RPr order: rFonts, b, i, strike, sz, szCs, u.
+            var rPr = new RunProperties(new RunFonts { Ascii = face, HighAnsi = face, ComplexScript = face });
             if (bold) rPr.AppendChild(new Bold());
             if (italic) rPr.AppendChild(new Italic());
-            if (underline) rPr.AppendChild(new Underline { Val = UnderlineValues.Single });
             if (strike) rPr.AppendChild(new Strike());
+            rPr.AppendChild(new FontSize { Val = halfPt });
+            rPr.AppendChild(new FontSizeComplexScript { Val = halfPt });
+            if (underline) rPr.AppendChild(new Underline { Val = UnderlineValues.Single });
             var run = new Run(rPr);
             // XML 1.0 forbids C0 controls other than tab/LF/CR; the package writer throws on save.
             run.AppendChild(new WText(XmlIllegalChars.Replace(text ?? "", "")) { Space = SpaceProcessingModeValues.Preserve });

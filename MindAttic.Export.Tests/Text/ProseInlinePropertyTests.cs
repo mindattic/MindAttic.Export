@@ -191,21 +191,10 @@ public class ProseInlinePropertyTests
     [TestCase("a ** b", "a ** b")]
     [TestCase("the end**", "the end**")]
     [TestCase("***", "***")]
-    [Ignore("BUG (inherited verbatim from Prose ProseInline): a lone \"**\" with no closing \"**\" is not left literal as the Parse doc promises. Bold fails to match, then the single-'*' rule sees the first '*' closed by the second (a lone '*' with no '*' after it) and opens/closes an empty italic span, so both asterisks vanish: StripFormatting(\"a ** b\") == \"a  b\", StripFormatting(\"**\") == \"\". Repro: ProseInline.StripFormatting(\"a ** b\"). Fixing it changes Prose editor/export output, so it must be done in both places.")]
     public void Unmatched_double_asterisk_is_literal(string text, string expected)
     {
         Assert.That(ProseInline.StripFormatting(text), Is.EqualTo(expected));
-    }
-
-    [TestCase("**", "")]
-    [TestCase("a ** b", "a  b")]
-    [TestCase("the end**", "the end")]
-    [TestCase("***", "*")]
-    public void Unmatched_double_asterisk_current_behaviour_matches_legacy(string text, string current)
-    {
-        // Pins today's (legacy-identical) behaviour of the defect above.
-        Assert.That(ProseInline.StripFormatting(text), Is.EqualTo(current));
-        Assert.That(ProseLegacy.ProseInline.StripFormatting(text), Is.EqualTo(current));
+        Assert.That(ProseLegacy.ProseInline.StripFormatting(text), Is.EqualTo(expected));
     }
 
     [TestCase("**a** *b* ~~c~~ <u>d</u>", "a b c d")]
