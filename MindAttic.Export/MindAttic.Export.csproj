@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>MindAttic.Export</PackageId>
-    <Version>2.0.0</Version>
+    <Version>3.0.0</Version>
     <Description>The one place a MindAttic application turns data into a user-facing file: book manuscripts (docx, epub, pdf, txt, md), Markdown documents and reports, and generic artifacts through ArtifactWriter. Archive, never delete.</Description>
     <PackageTags>mindattic;export;docx;epub;pdf;markdown;manuscript</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

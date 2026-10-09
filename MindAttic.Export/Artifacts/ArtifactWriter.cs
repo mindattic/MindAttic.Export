@@ -95,6 +95,18 @@ public static class ArtifactWriter
         return target;
     }
 
+    /// <summary>Writes a zip artifact (a bundle such as <c>.tutor</c>, <c>.idealist</c> or
+    /// <c>.automata.zip</c>). <paramref name="build"/> adds the entries — the caller keeps its own
+    /// manifest and entry layout; the library owns creating, placing and protecting the file.</summary>
+    public static Task<string> WriteZipAsync(string directory, string fileName,
+                                             Func<System.IO.Compression.ZipArchive, CancellationToken, Task> build,
+                                             ArtifactOptions? options = null, CancellationToken ct = default) =>
+        WriteStreamAsync(directory, fileName, async (stream, c) =>
+        {
+            using var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true);
+            await build(zip, c);
+        }, options, ct);
+
     /// <summary>Writes an artifact produced by a renderer that insists on a file path (OpenXml,
     /// QuestPDF). The renderer writes a temporary path that is then moved into place.</summary>
     public static async Task<string> WriteViaPathAsync(string directory, string fileName,

@@ -5,3 +5,4 @@ obj/
 out/
 [Tt]est[Rr]esults/
 .claude/quicksave.md
+artifacts/
