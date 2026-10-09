@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>MindAttic.Export</PackageId>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <Description>The one place a MindAttic application turns data into a user-facing file: book manuscripts (docx, epub, pdf, txt, md), Markdown documents and reports, and generic artifacts through ArtifactWriter. Archive, never delete.</Description>
     <PackageTags>mindattic;export;docx;epub;pdf;markdown;manuscript</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

@@ -39,6 +39,12 @@ public sealed record MarkdownReaderOptions
     /// <summary>Parse <c>$…$</c> and <c>$$…$$</c> as LaTeX math. Turn off for documents that use
     /// dollar signs as currency.</summary>
     public bool Math { get; init; } = true;
+
+    /// <summary>Report mode: the first level-1 heading is the document's title (it becomes the
+    /// title page, not a chapter) and the rest of the document is one untitled chapter whose
+    /// level-1 and level-2 sections become headings. For single-document reports such as Prose
+    /// book reports.</summary>
+    public bool FirstHeadingIsTitle { get; init; }
 }
 
 /// <summary>
@@ -74,8 +80,24 @@ public static class MarkdownManuscriptReader
     public static Manuscript Read(string markdown, ManuscriptInfo info, MarkdownReaderOptions? options = null) =>
         info.ToManuscript(ReadChapters(markdown, options ?? new MarkdownReaderOptions()));
 
-    public static List<Chapter> ReadChapters(string markdown, MarkdownReaderOptions options)
+    /// <summary>
+    /// Reads a single-document report (see <see cref="MarkdownReaderOptions.FirstHeadingIsTitle"/>).
+    /// The title is the first level-1 heading, or <paramref name="fallbackTitle"/> when there is none.
+    /// </summary>
+    public static Manuscript ReadReport(string markdown, string fallbackTitle, string? subtitle = null,
+                                        string? author = null, MarkdownReaderOptions? options = null)
     {
+        options = (options ?? new MarkdownReaderOptions()) with { FirstHeadingIsTitle = true };
+        var (chapters, title) = ReadCore(markdown, options);
+        return new Manuscript { Title = title ?? fallbackTitle, Subtitle = subtitle, Author = author, Chapters = chapters };
+    }
+
+    public static List<Chapter> ReadChapters(string markdown, MarkdownReaderOptions options) =>
+        ReadCore(markdown, options).Chapters;
+
+    private static (List<Chapter> Chapters, string? Title) ReadCore(string markdown, MarkdownReaderOptions options)
+    {
+        string? documentTitle = null;
         var source = markdown.Replace("\r\n", "\n");
         var doc = Markdig.Markdown.Parse(source, Pipeline(options.Math));
         var chapters = new List<Chapter>();
@@ -84,6 +106,26 @@ public static class MarkdownManuscriptReader
 
         foreach (var block in doc)
         {
+            if (options.FirstHeadingIsTitle)
+            {
+                if (block is MdHeading { Level: 1 } titleHeading && documentTitle is null)
+                {
+                    documentTitle = InlineText(titleHeading.Inline);
+                    continue;
+                }
+                if (current is null)
+                {
+                    current = new Chapter((string?)null);
+                    chapters.Add(current);
+                }
+                if (block is MdHeading { Level: 1 } section)
+                {
+                    current.Blocks.Add(new Model.HeadingBlock(2, Raw(source, section.Inline), Spans(section.Inline)));
+                    continue;
+                }
+                foreach (var converted in Convert(block, source, hanging)) current.Blocks.Add(converted);
+                continue;
+            }
             if (block is MdHeading { Level: 1 } h1)
             {
                 var heading = NormalizeHeading(InlineText(h1.Inline), options.HeadingStyle);
@@ -100,7 +142,7 @@ public static class MarkdownManuscriptReader
             }
             foreach (var converted in Convert(block, source, hanging)) current.Blocks.Add(converted);
         }
-        return chapters;
+        return (chapters, documentTitle);
     }
 
     public static string NormalizeHeading(string heading, ChapterHeadingStyle style)
