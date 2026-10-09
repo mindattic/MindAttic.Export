@@ -30,6 +30,8 @@ public sealed class EpubRenderer : IManuscriptRenderer
         var bookUuid = options.BookIdentifier ?? $"urn:uuid:{Guid.NewGuid()}";
         var modified = options.FixedTimestamp ?? DateTime.UtcNow;
 
+        var lang = string.IsNullOrWhiteSpace(manuscript.Language) ? "en" : manuscript.Language;
+
         using var fs = File.Create(path);
         using var zip = new ZipArchive(fs, ZipArchiveMode.Create);
 
@@ -42,13 +44,13 @@ public sealed class EpubRenderer : IManuscriptRenderer
         // Prose book stylesheet unchanged; the document-block rules are appended only for
         // manuscripts that use document blocks, so a book's EPUB stays byte-identical.
         WriteEntry(zip, "OEBPS/styles.css", UsesDocumentBlocks(chapters) ? StylesCss() + DocumentCss() : StylesCss());
-        WriteEntry(zip, "OEBPS/title.xhtml", TitlePageXhtml(manuscript, authorName));
-        WriteEntry(zip, "OEBPS/toc.xhtml", TocXhtml(manuscript.Title, chapters));
+        WriteEntry(zip, "OEBPS/title.xhtml", TitlePageXhtml(manuscript, authorName, lang));
+        WriteEntry(zip, "OEBPS/toc.xhtml", TocXhtml(manuscript.Title, chapters, lang));
 
         for (int i = 0; i < chapters.Count; i++)
-            WriteEntry(zip, $"OEBPS/chapter-{i + 1:D3}.xhtml", ChapterXhtml(chapters[i], manuscript.Title));
+            WriteEntry(zip, $"OEBPS/chapter-{i + 1:D3}.xhtml", ChapterXhtml(chapters[i], manuscript.Title, lang));
 
-        WriteEntry(zip, "OEBPS/content.opf", ContentOpf(manuscript, chapters, authorName, bookUuid, modified));
+        WriteEntry(zip, "OEBPS/content.opf", ContentOpf(manuscript, chapters, authorName, bookUuid, modified, lang));
     }
 
     /// <summary>The chapters plus, when the manuscript has a glossary, a back-matter "Glossary"
@@ -115,7 +117,7 @@ public sealed class EpubRenderer : IManuscriptRenderer
         _ => false
     };
 
-    private static string TitlePageXhtml(Manuscript m, string author)
+    private static string TitlePageXhtml(Manuscript m, string author, string lang)
     {
         // Synopsis intentionally omitted from the title page (back-cover blurb only);
         // it still ships as the ebook <dc:description> catalog metadata.
@@ -126,7 +128,7 @@ public sealed class EpubRenderer : IManuscriptRenderer
         return $"""
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE html>
-            <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+            <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="{lang}">
             <head><title>{Esc(m.Title)}</title><link rel="stylesheet" type="text/css" href="styles.css"/></head>
             <body class="title-page">
               <h1 class="book-title">{Esc(m.Title)}</h1>
@@ -136,12 +138,12 @@ public sealed class EpubRenderer : IManuscriptRenderer
             """;
     }
 
-    private static string TocXhtml(string title, List<Chapter> chapters)
+    private static string TocXhtml(string title, List<Chapter> chapters, string lang)
     {
         var sb = new StringBuilder();
         sb.AppendLine("""<?xml version="1.0" encoding="UTF-8"?>""");
         sb.AppendLine("""<!DOCTYPE html>""");
-        sb.AppendLine("""<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en">""");
+        sb.AppendLine($"""<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="{lang}">""");
         sb.AppendLine($"""<head><title>{Esc(title)} — Contents</title><link rel="stylesheet" type="text/css" href="styles.css"/></head>""");
         sb.AppendLine("""<body><nav epub:type="toc" id="toc"><h1>Contents</h1><ol>""");
         for (int i = 0; i < chapters.Count; i++)
@@ -155,7 +157,7 @@ public sealed class EpubRenderer : IManuscriptRenderer
         return sb.ToString();
     }
 
-    private static string ChapterXhtml(Chapter chapter, string bookTitle)
+    private static string ChapterXhtml(Chapter chapter, string bookTitle, string lang)
     {
         // Heading is null for a single-chapter story (never print "Chapter 1") — the
         // page <title> falls back to the book title and no <h2> heading is emitted.
@@ -163,7 +165,7 @@ public sealed class EpubRenderer : IManuscriptRenderer
         var sb = new StringBuilder();
         sb.AppendLine("""<?xml version="1.0" encoding="UTF-8"?>""");
         sb.AppendLine("""<!DOCTYPE html>""");
-        sb.AppendLine("""<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">""");
+        sb.AppendLine($"""<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="{lang}">""");
         sb.AppendLine($"""<head><title>{Esc(heading ?? bookTitle)}</title><link rel="stylesheet" type="text/css" href="styles.css"/></head>""");
         sb.AppendLine("<body>");
         if (heading is not null)
@@ -234,16 +236,16 @@ public sealed class EpubRenderer : IManuscriptRenderer
         }
     }
 
-    private static string ContentOpf(Manuscript m, List<Chapter> chapters, string author, string uuid, DateTime modified)
+    private static string ContentOpf(Manuscript m, List<Chapter> chapters, string author, string uuid, DateTime modified, string lang)
     {
         var sb = new StringBuilder();
         sb.AppendLine("""<?xml version="1.0" encoding="UTF-8"?>""");
-        sb.AppendLine("""<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="en">""");
+        sb.AppendLine($"""<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="{lang}">""");
         sb.AppendLine("""<metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">""");
         sb.AppendLine($"""  <dc:identifier id="bookid">{uuid}</dc:identifier>""");
         sb.AppendLine($"""  <dc:title>{Esc(m.Title)}</dc:title>""");
         sb.AppendLine($"""  <dc:creator opf:role="aut">{Esc(author)}</dc:creator>""");
-        sb.AppendLine("""  <dc:language>en</dc:language>""");
+        sb.AppendLine($"""  <dc:language>{Esc(lang)}</dc:language>""");
         if (!string.IsNullOrWhiteSpace(m.Description))
             sb.AppendLine($"""  <dc:description>{Esc(m.Description)}</dc:description>""");
         sb.AppendLine($"""  <meta property="dcterms:modified">{modified.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)}</meta>""");

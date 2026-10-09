@@ -124,6 +124,36 @@ public class RendererTests : TempDirTestBase
     public void Epub_escape(string? input, string expected) => Assert.That(EpubRenderer.Esc(input), Is.EqualTo(expected));
 
     [Test]
+    public void Epub_language_defaults_to_en()
+    {
+        var path = Temp.File("en.epub");
+        EpubRenderer.Render(One(new ParagraphBlock("x")), path, ExportOptions.ProseBook);
+        var opf = Packages.ReadZip(path).Single(e => e.Name == "OEBPS/content.opf").Text;
+        var title = Packages.ReadZip(path).Single(e => e.Name == "OEBPS/title.xhtml").Text;
+        Assert.That(opf, Does.Contain("<dc:language>en</dc:language>"));
+        Assert.That(opf, Does.Contain("xml:lang=\"en\""));
+        Assert.That(title, Does.Contain("xml:lang=\"en\""));
+    }
+
+    [Test]
+    public void Epub_honours_manuscript_language()
+    {
+        var m = new Manuscript { Title = "T", Language = "fr", Chapters = [new Chapter("C", [new ParagraphBlock("x")])] };
+        var path = Temp.File("fr.epub");
+        EpubRenderer.Render(m, path, ExportOptions.ProseBook);
+        var entries = Packages.ReadZip(path);
+        var opf = entries.Single(e => e.Name == "OEBPS/content.opf").Text;
+        var title = entries.Single(e => e.Name == "OEBPS/title.xhtml").Text;
+        var toc = entries.Single(e => e.Name == "OEBPS/toc.xhtml").Text;
+        var chapter = entries.Single(e => e.Name == "OEBPS/chapter-001.xhtml").Text;
+        Assert.That(opf, Does.Contain("<dc:language>fr</dc:language>"));
+        Assert.That(opf, Does.Contain("xml:lang=\"fr\""));
+        Assert.That(title, Does.Contain("xml:lang=\"fr\""));
+        Assert.That(toc, Does.Contain("xml:lang=\"fr\""));
+        Assert.That(chapter, Does.Contain("xml:lang=\"fr\""));
+    }
+
+    [Test]
     public void Epub_without_identifier_or_timestamp_mints_them()
     {
         var a = Temp.File("a.epub");
