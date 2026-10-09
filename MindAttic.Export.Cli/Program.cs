@@ -52,7 +52,7 @@ if (sources.Count == 0)
 var manuscript = MarkdownManuscriptReader.ReadFiles(sources, config.ToInfo(), config.ToReaderOptions());
 var request = new BundleRequest
 {
-    Directory = outDir ?? config.OutputDirectory,
+    Directory = outDir ?? config.ResolveOutputDirectory(Path.GetDirectoryName(configPath)!),
     FileBaseName = config.FileBaseName,
     Formats = (formats?.Split(',') ?? [.. config.Formats]).Select(ExportFormatExtensions.Parse).ToList(),
     Version = version ?? config.Version,

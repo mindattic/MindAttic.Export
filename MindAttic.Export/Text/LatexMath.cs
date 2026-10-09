@@ -51,7 +51,9 @@ public static class LatexMath
     /// <summary>Plain Unicode approximation (super/subscripts written with ^ and _ markers).</summary>
     public static string ToPlainText(string latex) => string.Concat(ToSpans(latex).Select(s => s.Text));
 
-    private static void Convert(string s, SpanBuilder outp, ProseInline.Style style)
+    // compact: inside a superscript or subscript, operators are written without surrounding spaces
+    // and a minus is always the unary sign (10^{-3} → 10⁻³).
+    private static void Convert(string s, SpanBuilder outp, ProseInline.Style style, bool compact = false)
     {
         var i = 0;
         while (i < s.Length)
@@ -61,7 +63,7 @@ public static class LatexMath
             {
                 var (body, next) = Group(s, i + 1);
                 var flag = c == '_' ? ProseInline.Style.Subscript : ProseInline.Style.Superscript;
-                Convert(body, outp, style | flag);
+                Convert(body, outp, style | flag, compact: true);
                 i = next;
             }
             else if (c == '\\')
@@ -73,9 +75,9 @@ public static class LatexMath
                     var (num, n1) = Group(s, i);
                     var (den, n2) = Group(s, n1);
                     i = n2;
-                    WrapIfComplex(num, outp, style);
+                    WrapIfComplex(num, outp, style, compact);
                     outp.Add("/", style);
-                    WrapIfComplex(den, outp, style);
+                    WrapIfComplex(den, outp, style, compact);
                 }
                 else if (name is "bar" or "overline" or "hat" or "tilde" or "vec" or "dot")
                 {
@@ -108,7 +110,7 @@ public static class LatexMath
                     var (arg, n1) = Group(s, i);
                     i = n1;
                     outp.Add("√(", style);
-                    Convert(arg, outp, style);
+                    Convert(arg, outp, style, compact);
                     outp.Add(")", style);
                 }
                 else if (Symbols.TryGetValue(name, out var sym))
@@ -137,13 +139,13 @@ public static class LatexMath
             }
             else if (c is '=' or '+' or '<' or '>')
             {
-                outp.Add($" {c} ", style);
+                outp.Add(compact ? c.ToString() : $" {c} ", style);
                 i++;
             }
             else if (c == '-')
             {
                 // Binary minus between operands; unary after an operator or at the start.
-                var unary = outp.LastNonSpaceIsOperatorOrEmpty();
+                var unary = compact || outp.LastNonSpaceIsOperatorOrEmpty();
                 outp.Add(unary ? "−" : " − ", style);
                 i++;
             }
@@ -159,10 +161,10 @@ public static class LatexMath
         }
     }
 
-    private static void WrapIfComplex(string body, SpanBuilder outp, ProseInline.Style style)
+    private static void WrapIfComplex(string body, SpanBuilder outp, ProseInline.Style style, bool compact = false)
     {
         var inner = new SpanBuilder();
-        Convert(body, inner, style);
+        Convert(body, inner, style, compact);
         var spans = inner.Build();
         var text = string.Concat(spans.Select(x => x.Text));
         var simple = !text.Any(ch => ch is ' ' or '+' or '−' or '-' or '=' or '/' or ' ');

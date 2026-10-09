@@ -166,8 +166,11 @@ public static class ArtifactWriter
         var dir = Path.GetDirectoryName(path)!;
         var archive = Path.Combine(dir, ExportArchive.ArchivesFolder);
         Directory.CreateDirectory(archive);
-        var stamped = Path.Combine(archive,
-            $"{Path.GetFileNameWithoutExtension(path)}__{DateTime.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture)}{Path.GetExtension(path)}");
+        var stem = $"{Path.GetFileNameWithoutExtension(path)}__{DateTime.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture)}";
+        var stamped = Path.Combine(archive, stem + Path.GetExtension(path));
+        // Two archives of the same file within one millisecond: add a counter rather than fail.
+        for (var n = 2; File.Exists(stamped); n++)
+            stamped = Path.Combine(archive, $"{stem}_{n}{Path.GetExtension(path)}");
         File.Move(path, stamped);
         return stamped;
     }

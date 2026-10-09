@@ -150,7 +150,10 @@ public static class MarkdownManuscriptReader
         heading = heading.Trim();
         if (style != ChapterHeadingStyle.EmDash) return heading;
         var m = ChapterPrefix.Match(heading);
-        return m.Success ? $"{m.Groups[1].Value} {m.Groups[2].Value} — {heading[m.Length..].Trim()}" : heading;
+        if (!m.Success) return heading;
+        var rest = heading[m.Length..].Trim();
+        var label = $"{m.Groups[1].Value} {m.Groups[2].Value}";
+        return rest.Length == 0 ? label : $"{label} — {rest}";
     }
 
     private static string StripChapterPrefix(string heading)

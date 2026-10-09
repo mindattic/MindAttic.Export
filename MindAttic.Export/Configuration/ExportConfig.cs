@@ -74,6 +74,11 @@ public sealed record ExportConfig
         Keywords = Keywords
     };
 
+    /// <summary>The output folder; a relative path resolves against the config file's folder,
+    /// like <see cref="Sources"/>.</summary>
+    public string ResolveOutputDirectory(string baseDirectory) =>
+        Path.GetFullPath(Path.IsPathRooted(OutputDirectory) ? OutputDirectory : Path.Combine(baseDirectory, OutputDirectory));
+
     /// <summary>The source files in reading order.</summary>
     public IReadOnlyList<string> ResolveSources(string baseDirectory)
     {

@@ -51,8 +51,10 @@ public sealed class DocxRenderer : IManuscriptRenderer
         {
             // Explicitly set document metadata so Word doesn't pull Creator from
             // the Windows/Microsoft account of whoever opens the file.
-            doc.PackageProperties.Creator = author;
-            doc.PackageProperties.LastModifiedBy = author;
+            // Same C0-control scrub as every text run: the package writer throws on save otherwise.
+            var creator = author is null ? null : XmlIllegalChars.Replace(author, "");
+            doc.PackageProperties.Creator = creator;
+            doc.PackageProperties.LastModifiedBy = creator;
 
             var main = doc.AddMainDocumentPart();
             main.Document = new Document();
@@ -559,7 +561,7 @@ public sealed class DocxRenderer : IManuscriptRenderer
                 for (var i = 0; i < lines.Length; i++)
                 {
                     var r = MakeRun(lines[i], "20", font: Mono);
-                    if (i > 0) r.PrependChild(new Break());
+                    if (i > 0) r.InsertAfter(new Break(), r.RunProperties);
                     p.AppendChild(r);
                 }
                 return p;
@@ -644,9 +646,10 @@ public sealed class DocxRenderer : IManuscriptRenderer
             var table = new Table(new TableProperties(
                 new TableWidth { Width = "5000", Type = TableWidthUnitValues.Pct },
                 new TableBorders(
+                    // Schema order: top, left, bottom, right, insideH, insideV.
                     new TopBorder { Val = BorderValues.Single, Size = 4, Color = "808080" },
-                    new BottomBorder { Val = BorderValues.Single, Size = 4, Color = "808080" },
                     new LeftBorder { Val = BorderValues.Single, Size = 4, Color = "808080" },
+                    new BottomBorder { Val = BorderValues.Single, Size = 4, Color = "808080" },
                     new RightBorder { Val = BorderValues.Single, Size = 4, Color = "808080" },
                     new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4, Color = "808080" },
                     new InsideVerticalBorder { Val = BorderValues.Single, Size = 4, Color = "808080" }),
