@@ -105,6 +105,25 @@ public class ExportConfigTests : TempDirTestBase
     }
 
     [Test]
+    public void First_heading_is_title_defaults_off_and_reaches_the_reader()
+    {
+        var c = ExportConfig.Load(Write(Minimal));
+        Assert.That(c.ToReaderOptions().FirstHeadingIsTitle, Is.False);
+        Assert.That((c with { FirstHeadingIsTitle = true }).ToReaderOptions().FirstHeadingIsTitle, Is.True);
+    }
+
+    [Test]
+    public void First_heading_is_title_reads_an_article_as_one_chapter()
+    {
+        var md = "# The Title\n\n## Abstract\n\nText.\n\n## 1 Introduction\n\nMore.\n";
+        var c = ExportConfig.Load(Write(Minimal)) with { FirstHeadingIsTitle = true };
+        var chapters = MarkdownManuscriptReader.ReadChapters(md, c.ToReaderOptions());
+        Assert.That(chapters, Has.Count.EqualTo(1));
+        Assert.That(chapters[0].Heading, Is.Null);
+        Assert.That(chapters[0].Blocks.OfType<MindAttic.Export.Model.HeadingBlock>().Count(), Is.EqualTo(2));
+    }
+
+    [Test]
     public void Missing_hanging_list_uses_reader_default()
     {
         var c = ExportConfig.Load(Write(Minimal));

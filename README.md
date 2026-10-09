@@ -54,7 +54,7 @@ await ArtifactWriter.WriteJsonAsync(downloads,
 mindattic-export --config export.json [--out <dir>] [--formats docx,epub,pdf,txt,md] [--version N] [--no-archive]
 ```
 
-`export.json` names the title page, the Markdown sources (wildcards read in ordinal order), the output folder, the formats and the page profile (`letter` or `trade`). See `SyntheticExchangeTheory/export.json` for a complete example.
+`export.json` names the title page, the Markdown sources (wildcards read in ordinal order), the output folder, the formats and the page profile (`letter` or `trade`). See `SyntheticExchangeTheory/export.json` for a complete example. Set `"firstHeadingIsTitle": true` for a single paper (a journal manuscript, a report): the first `#` heading becomes the title and the rest is one continuous document, with its sections as headings and no chapter page breaks.
 
 ## Build, test, pack
 

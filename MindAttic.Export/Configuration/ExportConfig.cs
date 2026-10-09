@@ -38,6 +38,11 @@ public sealed record ExportConfig
     public List<string>? HangingIndentChapters { get; init; }
     public bool Math { get; init; } = true;
 
+    /// <summary>Article (report) mode: the first level-1 heading is the document title and the
+    /// rest is one continuous chapter whose sections become headings, with no chapter page
+    /// breaks. For single-document papers such as journal manuscripts.</summary>
+    public bool FirstHeadingIsTitle { get; init; }
+
     private static readonly JsonSerializerOptions Json = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -62,7 +67,8 @@ public sealed record ExportConfig
     {
         HeadingStyle = HeadingStyle.Trim().ToLowerInvariant() is "as-written" or "aswritten" ? ChapterHeadingStyle.AsWritten : ChapterHeadingStyle.EmDash,
         HangingIndentChapters = HangingIndentChapters ?? new MarkdownReaderOptions().HangingIndentChapters,
-        Math = Math
+        Math = Math,
+        FirstHeadingIsTitle = FirstHeadingIsTitle
     };
 
     public ManuscriptInfo ToInfo() => new()
