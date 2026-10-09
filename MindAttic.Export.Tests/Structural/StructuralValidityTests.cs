@@ -66,20 +66,15 @@ public class StructuralValidityTests : TempDirTestBase
     /// Schema-order defects the docx writer has today (see the ignored tests below). Each is
     /// (parent element, unexpected child). Anything outside this list fails the matrix.
     /// </summary>
-    internal static readonly HashSet<(string Parent, string Child)> KnownOrderDefects =
-    [
-        ("rPr", "b"), ("rPr", "i"), ("rPr", "strike"),   // b/i/strike written after sz/szCs (legacy)
-        ("pPr", "spacing"),                              // jc written before spacing (legacy)
-        ("settings", "mirrorMargins"),                   // mirrorMargins after updateFields (legacy)
-        ("tblBorders", "left"), ("tblBorders", "right"), // left/right after bottom (document tables)
-        ("r", "rPr"),                                    // <w:br/> prepended before rPr (preformatted lines)
-    ];
+    internal static readonly HashSet<(string Parent, string Child)> KnownOrderDefects = [];
 
     internal static List<ValidationErrorInfo> Validate(string path)
     {
         using var doc = WordprocessingDocument.Open(path, false);
         Assert.That(doc.MainDocumentPart?.Document?.Body, Is.Not.Null);
-        return new OpenXmlValidator(FileFormatVersions.Office2019).Validate(doc).ToList();
+        var errors = new OpenXmlValidator(FileFormatVersions.Office2019).Validate(doc).ToList();
+        foreach (var e in errors) _ = e.Path?.XPath; // resolved lazily; read it while the package is still open
+        return errors;
     }
 
     internal static (string Parent, string Child)? OrderDefect(ValidationErrorInfo e)
@@ -142,7 +137,6 @@ public class StructuralValidityTests : TempDirTestBase
     }
 
     [Test]
-    [Ignore("BUG (inherited from Prose DocxExportService, so fixing it changes legacy bytes): DocxRenderer writes OOXML children out of schema order, so OpenXmlValidator (Office2019) reports Sch_UnexpectedElementContentExpectingComplex on every styled run and paragraph of a Prose book: <w:rPr> has <w:b>/<w:i>/<w:strike> after <w:sz>/<w:szCs> (schema: b, i, strike precede sz); <w:pPr> has <w:jc> before <w:spacing> (schema: spacing precedes jc); <w:settings> has <w:mirrorMargins> after <w:updateFields>. Word tolerates it; strict consumers may not. Repro: render any manuscript with an *italic* paragraph and validate.")]
     public void Prose_book_docx_has_zero_schema_errors()
     {
         var book = LegacyBookGen.Generate(7001);
