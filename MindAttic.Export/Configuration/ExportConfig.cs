@@ -57,7 +57,12 @@ public sealed record ExportConfig
 
     public ExportOptions ToOptions() => new()
     {
-        Profile = Profile.Trim().ToLowerInvariant() is "trade" or "trade6x9" or "6x9" ? PageProfile.Trade6x9 : PageProfile.Letter,
+        Profile = Profile.Trim().ToLowerInvariant() switch
+        {
+            "trade" or "trade6x9" or "6x9" => PageProfile.Trade6x9,
+            "screenplay" => PageProfile.Screenplay,
+            _ => PageProfile.Letter
+        },
         IncludeToc = Toc,
         DocxPageNumbers = DocxPageNumbers,
         FontFamily = FontFamily

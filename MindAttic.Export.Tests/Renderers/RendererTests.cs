@@ -368,6 +368,113 @@ public class RendererTests : TempDirTestBase
         Assert.That(new MarkdownRenderer().Format, Is.EqualTo(ExportFormat.Md));
     }
 
+    // ── Layouts: lyric stanzas and screenplay elements ───────────────────────
+
+    private static Manuscript Lyrics() => One(
+        new StanzaBlock(["Line *one*", "Line two"]),
+        new StanzaBlock(["Chorus line"]));
+
+    private static Manuscript Script() => One(
+        new ScriptBlock(ScriptElement.SceneHeading, "int. bar - night"),
+        new ScriptBlock(ScriptElement.Action, "Rain on the glass."),
+        new ScriptBlock(ScriptElement.Character, "kyle"),
+        new ScriptBlock(ScriptElement.Parenthetical, "(quietly)"),
+        new ScriptBlock(ScriptElement.Dialogue, "Not here."),
+        new ScriptBlock(ScriptElement.Transition, "cut to:"));
+
+    [Test]
+    public void Txt_stanza_lines_stay_together()
+    {
+        var expected = string.Join(NL, "T", "", "C", "", "Line one", "Line two", "", "Chorus line") + "\n";
+        Assert.That(TextRenderer.Render(Lyrics()), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void Txt_script_indents_and_hangs_speech_under_the_cue()
+    {
+        var expected = string.Join(NL, "T", "", "C", "", "INT. BAR - NIGHT", "", "Rain on the glass.", "",
+            new string(' ', 20) + "KYLE", new string(' ', 15) + "(quietly)", new string(' ', 10) + "Not here.", "",
+            "CUT TO:".PadLeft(60)) + "\n";
+        Assert.That(TextRenderer.Render(Script()), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void Md_stanza_uses_hard_breaks_and_script_is_fountain()
+    {
+        var lyrics = MarkdownRenderer.Render(Lyrics());
+        Assert.That(lyrics, Does.Contain($"Line *one*  {NL}Line two{NL}{NL}Chorus line"));
+        var script = MarkdownRenderer.Render(Script());
+        Assert.That(script, Does.Contain($"INT. BAR - NIGHT{NL}{NL}Rain on the glass.{NL}{NL}KYLE{NL}(quietly){NL}Not here.{NL}{NL}> CUT TO:"));
+    }
+
+    [Test]
+    public void Epub_layout_classes_and_stylesheet()
+    {
+        var path = Temp.File("l.epub");
+        EpubRenderer.Render(Lyrics(), path, ExportOptions.ProseBook);
+        using (var zip = System.IO.Compression.ZipFile.OpenRead(path))
+        {
+            var chapter = new StreamReader(zip.GetEntry("OEBPS/chapter-001.xhtml")!.Open()).ReadToEnd();
+            Assert.That(chapter, Does.Contain("""<p class="stanza">Line <em>one</em><br/>Line two</p>"""));
+            Assert.That(new StreamReader(zip.GetEntry("OEBPS/styles.css")!.Open()).ReadToEnd(), Does.Contain("p.stanza"));
+        }
+        path = Temp.File("s.epub");
+        EpubRenderer.Render(Script(), path, ExportOptions.Screenplay);
+        using (var zip = System.IO.Compression.ZipFile.OpenRead(path))
+        {
+            var chapter = new StreamReader(zip.GetEntry("OEBPS/chapter-001.xhtml")!.Open()).ReadToEnd();
+            Assert.That(chapter, Does.Contain("""<p class="script character">kyle</p>"""));
+            Assert.That(chapter, Does.Contain("""<p class="script dialogue">Not here.</p>"""));
+        }
+    }
+
+    [Test]
+    public void Docx_stanza_is_one_paragraph_with_line_breaks()
+    {
+        var path = Temp.File("l.docx");
+        var result = DocxRenderer.Render(Lyrics(), path, ExportOptions.ProseBook);
+        Assert.That(result.WordCount, Is.EqualTo(6));
+        using var doc = WordprocessingDocument.Open(path, false);
+        var stanza = doc.MainDocumentPart!.Document!.Body!.Elements<W.Paragraph>().First(p => p.InnerText.StartsWith("Line"));
+        Assert.That(stanza.InnerText, Is.EqualTo("Line oneLine two"));
+        Assert.That(stanza.Descendants<W.Break>().Count(), Is.EqualTo(1));
+        Assert.That(stanza.ParagraphProperties!.Justification!.Val!.Value, Is.EqualTo(W.JustificationValues.Left));
+    }
+
+    [Test]
+    public void Docx_screenplay_page_and_element_indents()
+    {
+        var path = Temp.File("s.docx");
+        DocxRenderer.Render(Script(), path, ExportOptions.Screenplay);
+        using var doc = WordprocessingDocument.Open(path, false);
+        var body = doc.MainDocumentPart!.Document!.Body!;
+        var margin = body.Elements<W.SectionProperties>().Single().GetFirstChild<W.PageMargin>()!;
+        Assert.That((uint)margin.Left!, Is.EqualTo(2160u));
+        W.Paragraph Para(string text) => body.Elements<W.Paragraph>().First(p => p.InnerText == text);
+        Assert.That(Para("INT. BAR - NIGHT"), Is.Not.Null);
+        Assert.That(Para("KYLE").ParagraphProperties!.Indentation!.Left!.Value, Is.EqualTo("2880"));
+        Assert.That(Para("Not here.").ParagraphProperties!.Indentation!.Left!.Value, Is.EqualTo("1440"));
+        Assert.That(Para("CUT TO:").ParagraphProperties!.Justification!.Val!.Value, Is.EqualTo(W.JustificationValues.Right));
+        Assert.That(Para("Rain on the glass.").Descendants<W.RunFonts>().First().Ascii!.Value, Is.EqualTo("Courier New"));
+        Structural.StructuralValidityTests.AssertOnlyKnownDefects(Structural.StructuralValidityTests.Validate(path));
+    }
+
+    [Test]
+    public void Pdf_renders_both_layouts()
+    {
+        PdfRenderer.Render(Lyrics(), Temp.File("l.pdf"), ExportOptions.ProseBook);
+        PdfRenderer.Render(Script(), Temp.File("s.pdf"), ExportOptions.Screenplay);
+        Assert.That(Support.Pdf.LooksValid(File.ReadAllBytes(Temp.File("l.pdf"))), Is.True);
+        Assert.That(Support.Pdf.LooksValid(File.ReadAllBytes(Temp.File("s.pdf"))), Is.True);
+    }
+
+    [Test]
+    public void Word_count_includes_stanzas_and_script()
+    {
+        Assert.That(ManuscriptExporter.WordCount(Lyrics()), Is.EqualTo(6));
+        Assert.That(ManuscriptExporter.WordCount(Script()), Is.EqualTo(14));
+    }
+
     // ── ReportExporter ───────────────────────────────────────────────────────
 
     [Test]

@@ -98,3 +98,28 @@ public sealed record MathBlock(string Latex, IReadOnlyList<ProseInline.Span> Spa
 
 /// <summary>A thematic break (scene or section break).</summary>
 public sealed record RuleBlock : Block;
+
+/// <summary>A lyric or verse stanza: its lines are kept together, set flush left with a line
+/// break (not a paragraph) between them, and a stanza's worth of space after the last line.
+/// Each line carries Prose inline markers.</summary>
+public sealed record StanzaBlock(IReadOnlyList<string> Lines) : Block;
+
+/// <summary>The standard screenplay elements, laid out to industry convention.</summary>
+public enum ScriptElement
+{
+    /// <summary>Slug line (<c>INT. KITCHEN - NIGHT</c>): flush left, upper case.</summary>
+    SceneHeading,
+    /// <summary>Description: flush left, full width.</summary>
+    Action,
+    /// <summary>Speaker cue: upper case, 2.0" in from the left margin.</summary>
+    Character,
+    /// <summary>Actor direction under a cue: 1.5" in, 2.0" wide.</summary>
+    Parenthetical,
+    /// <summary>Speech: 1.0" in, 3.5" wide.</summary>
+    Dialogue,
+    /// <summary><c>CUT TO:</c>: flush right, upper case.</summary>
+    Transition
+}
+
+/// <summary>One screenplay element. <see cref="Text"/> carries Prose inline markers.</summary>
+public sealed record ScriptBlock(ScriptElement Element, string Text) : Block;

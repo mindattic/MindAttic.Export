@@ -36,10 +36,13 @@ public sealed class PdfRenderer : IManuscriptRenderer
 
         // Trade: 6" × 9" KDP paperback trim (points: 1" = 72pt); margins top/bottom 1",
         // left/right 0.75" symmetric for screen reading. Letter: 8.5" × 11", 1" all round.
+        // Screenplay: Letter, 1.5" left for the binding, single-spaced so a page runs about a minute.
         var trade = options.Profile == PageProfile.Trade6x9;
+        var screenplay = options.Profile == PageProfile.Screenplay;
         var trim = trade ? new PageSize(432, 648) : new PageSize(612, 792);
         float marginTop = 72f, marginBottom = 72f;
-        float marginLeft = trade ? 54f : 72f, marginRight = trade ? 54f : 72f;
+        float marginLeft = trade ? 54f : screenplay ? 108f : 72f, marginRight = trade ? 54f : 72f;
+        var lineHeight = screenplay ? 1.0f : 1.4f;
 
         var toc = options.IncludeToc && chapters.Count(c => !string.IsNullOrWhiteSpace(c.Heading)) >= 2;
         string SectionId(int i) => $"chapter-{i + 1:D3}";
@@ -107,7 +110,7 @@ public sealed class PdfRenderer : IManuscriptRenderer
                     p.MarginTop(marginTop); p.MarginBottom(marginBottom);
                     p.MarginLeft(marginLeft); p.MarginRight(marginRight);
                     p.PageColor(Colors.White);
-                    p.DefaultTextStyle(t => t.FontFamily(font).FontSize(12).LineHeight(1.4f).FontColor(Colors.Black));
+                    p.DefaultTextStyle(t => t.FontFamily(font).FontSize(12).LineHeight(lineHeight).FontColor(Colors.Black));
                     p.Content().Column(col =>
                     {
                         if (!string.IsNullOrWhiteSpace(chapter.Heading))
@@ -260,6 +263,39 @@ public sealed class PdfRenderer : IManuscriptRenderer
             case RuleBlock:
                 col.Item().PaddingVertical(8).AlignCenter().Text("* * *");
                 break;
+
+            case StanzaBlock stanza:
+                col.Item().PaddingBottom(14).Column(lines =>
+                {
+                    foreach (var line in stanza.Lines)
+                        lines.Item().Text(t =>
+                        {
+                            t.AlignLeft();
+                            AppendInline(t, line);
+                        });
+                });
+                break;
+
+            case ScriptBlock script:
+            {
+                // Indents measured from the left margin on a 6" text line (Letter, 1.5" + 1").
+                var text = script.Text.Trim();
+                var item = script.Element switch
+                {
+                    ScriptElement.Character => col.Item().PaddingTop(12).PaddingLeft(144),
+                    ScriptElement.Parenthetical => col.Item().PaddingLeft(108).PaddingRight(180),
+                    ScriptElement.Dialogue => col.Item().PaddingLeft(72).PaddingRight(108),
+                    _ => col.Item().PaddingTop(12)
+                };
+                if (script.Element is ScriptElement.SceneHeading or ScriptElement.Character or ScriptElement.Transition)
+                    text = text.ToUpperInvariant();
+                item.Text(t =>
+                {
+                    if (script.Element == ScriptElement.Transition) t.AlignRight(); else t.AlignLeft();
+                    AppendInline(t, text);
+                });
+                break;
+            }
 
             case MarkerBlock:
                 break;

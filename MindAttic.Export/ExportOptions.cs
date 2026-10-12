@@ -8,7 +8,11 @@ public enum PageProfile
     Trade6x9,
 
     /// <summary>US Letter, 1" margins on every side. For reports and academic documents.</summary>
-    Letter
+    Letter,
+
+    /// <summary>US Letter screenplay page: 1.5" left (binding), 1" right, top and bottom.
+    /// Pair with a Courier face at 12pt (<see cref="ExportOptions.Screenplay"/>).</summary>
+    Screenplay
 }
 
 /// <summary>Rendering switches. The defaults reproduce Prose's book exports exactly.</summary>
@@ -49,6 +53,14 @@ public sealed record ExportOptions
         Profile = PageProfile.Letter,
         IncludeToc = true,
         DocxPageNumbers = true
+    };
+
+    /// <summary>Screenplay convention: US Letter, Courier 12pt, page numbers, no contents page.</summary>
+    public static ExportOptions Screenplay { get; } = new()
+    {
+        Profile = PageProfile.Screenplay,
+        DocxPageNumbers = true,
+        FontFamily = "Courier New"
     };
 }
 

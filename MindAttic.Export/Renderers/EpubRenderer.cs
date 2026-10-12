@@ -43,7 +43,9 @@ public sealed class EpubRenderer : IManuscriptRenderer
         WriteEntry(zip, "META-INF/container.xml", ContainerXml());
         // Prose book stylesheet unchanged; the document-block rules are appended only for
         // manuscripts that use document blocks, so a book's EPUB stays byte-identical.
-        WriteEntry(zip, "OEBPS/styles.css", UsesDocumentBlocks(chapters) ? StylesCss() + DocumentCss() : StylesCss());
+        var css = UsesDocumentBlocks(chapters) ? StylesCss() + DocumentCss() : StylesCss();
+        if (chapters.SelectMany(c => c.Blocks).Any(b => b is StanzaBlock or ScriptBlock)) css += LayoutCss();
+        WriteEntry(zip, "OEBPS/styles.css", css);
         WriteEntry(zip, "OEBPS/title.xhtml", TitlePageXhtml(manuscript, authorName, lang));
         WriteEntry(zip, "OEBPS/toc.xhtml", TocXhtml(manuscript.Title, chapters, lang));
 
@@ -104,6 +106,18 @@ public sealed class EpubRenderer : IManuscriptRenderer
         table.doc-table th { background: #eee; }
         blockquote { margin: 1em 2em; }
         p.rule { text-align: center; }
+        """;
+
+    /// <summary>Lyric stanzas and screenplay elements; appended only when a book uses them.</summary>
+    private static string LayoutCss() => """
+
+        p.stanza { margin: 0 0 1.2em; text-align: left; }
+        p.script { font-family: "Courier New", Courier, monospace; text-align: left; margin: 1em 0 0; }
+        p.scene-heading { text-transform: uppercase; }
+        p.character { margin-left: 33%; text-transform: uppercase; }
+        p.parenthetical { margin: 0 25% 0 25%; }
+        p.dialogue { margin: 0 17% 0 17%; }
+        p.transition { text-align: right; text-transform: uppercase; }
         """;
 
     /// <summary>True when any chapter holds a block that only Markdown documents produce.</summary>
@@ -231,6 +245,23 @@ public sealed class EpubRenderer : IManuscriptRenderer
             case RuleBlock:
                 sb.AppendLine("""<p class="rule">* * *</p>""");
                 break;
+            case StanzaBlock stanza:
+                sb.AppendLine($"""<p class="stanza">{string.Join("<br/>", stanza.Lines.Select(RenderInline))}</p>""");
+                break;
+            case ScriptBlock script:
+            {
+                var cls = script.Element switch
+                {
+                    ScriptElement.SceneHeading => "scene-heading",
+                    ScriptElement.Character => "character",
+                    ScriptElement.Parenthetical => "parenthetical",
+                    ScriptElement.Dialogue => "dialogue",
+                    ScriptElement.Transition => "transition",
+                    _ => "action"
+                };
+                sb.AppendLine($"""<p class="script {cls}">{RenderInline(script.Text.Trim())}</p>""");
+                break;
+            }
             case MarkerBlock:
                 break;
         }

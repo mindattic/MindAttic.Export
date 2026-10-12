@@ -174,6 +174,16 @@ public sealed class DocxRenderer : IManuscriptRenderer
                             body.AppendChild(w.Paragraph(p));
                             break;
 
+                        case StanzaBlock s:
+                            wordCount += s.Lines.Sum(l => ReadingInfo.CountWords(ProseInline.StripFormatting(l)));
+                            body.AppendChild(w.Stanza(s));
+                            break;
+
+                        case ScriptBlock s:
+                            wordCount += ReadingInfo.CountWords(ProseInline.StripFormatting(s.Text));
+                            body.AppendChild(w.Script(s));
+                            break;
+
                         default:
                             foreach (var el in w.DocumentBlock(block, ref wordCount)) body.AppendChild(el);
                             break;
@@ -216,7 +226,13 @@ public sealed class DocxRenderer : IManuscriptRenderer
                 new PageMargin { Top = 1440, Bottom = 1440, Left = 720U, Right = 720U, Header = 720U, Footer = 720U, Gutter = KdpGutter(kdpPageCount) })
             : new SectionProperties(
                 new PageSize { Width = 12240U, Height = 15840U },
-                new PageMargin { Top = 1440, Bottom = 1440, Left = 1440U, Right = 1440U, Header = 720U, Footer = 720U, Gutter = 0U });
+                new PageMargin
+                {
+                    Top = 1440, Bottom = 1440,
+                    // Screenplay: 1.5" binding margin on the left.
+                    Left = profile == PageProfile.Screenplay ? 2160U : 1440U, Right = 1440U,
+                    Header = 720U, Footer = 720U, Gutter = 0U
+                });
         if (footerId is not null)
             sect.PrependChild(new FooterReference { Type = HeaderFooterValues.Default, Id = footerId });
         return sect;
@@ -567,6 +583,48 @@ public sealed class DocxRenderer : IManuscriptRenderer
                 return p;
             }
             foreach (var run in SpanRuns(block.Runs, Body12)) p.AppendChild(run);
+            return p;
+        }
+
+        /// <summary>A lyric stanza: one left-aligned paragraph, its lines joined by line breaks,
+        /// kept on one page where it fits, a stanza's space after.</summary>
+        public Paragraph Stanza(StanzaBlock stanza)
+        {
+            var p = new Paragraph(new ParagraphProperties(
+                new KeepLines(),
+                new SpacingBetweenLines { Line = "276", LineRule = LineSpacingRuleValues.Auto, After = "280" },
+                new Justification { Val = JustificationValues.Left }));
+            for (var i = 0; i < stanza.Lines.Count; i++)
+            {
+                if (i > 0) p.AppendChild(new Run(new Break()));
+                foreach (var run in InlineRuns(stanza.Lines[i])) p.AppendChild(run);
+            }
+            return p;
+        }
+
+        /// <summary>One screenplay element, single-spaced, indented to convention on a 6" line:
+        /// cue at 2.0", parenthetical 1.5"–3.5", dialogue 1.0"–4.5"; a blank line (12pt) before
+        /// every element except the speech hanging under its cue.</summary>
+        public Paragraph Script(ScriptBlock script)
+        {
+            var text = script.Text.Trim();
+            if (script.Element is ScriptElement.SceneHeading or ScriptElement.Character or ScriptElement.Transition)
+                text = text.ToUpperInvariant();
+            var hangs = script.Element is ScriptElement.Dialogue or ScriptElement.Parenthetical;
+            var props = new ParagraphProperties();
+            if (script.Element is ScriptElement.SceneHeading or ScriptElement.Character) props.AppendChild(new KeepNext());
+            props.AppendChild(new SpacingBetweenLines { Before = hangs ? "0" : "240", After = "0", Line = "240", LineRule = LineSpacingRuleValues.Auto });
+            var indent = script.Element switch
+            {
+                ScriptElement.Character => new Indentation { Left = "2880" },
+                ScriptElement.Parenthetical => new Indentation { Left = "2160", Right = "3600" },
+                ScriptElement.Dialogue => new Indentation { Left = "1440", Right = "2160" },
+                _ => null
+            };
+            if (indent is not null) props.AppendChild(indent);
+            props.AppendChild(new Justification { Val = script.Element == ScriptElement.Transition ? JustificationValues.Right : JustificationValues.Left });
+            var p = new Paragraph(props);
+            foreach (var run in InlineRuns(text)) p.AppendChild(run);
             return p;
         }
 

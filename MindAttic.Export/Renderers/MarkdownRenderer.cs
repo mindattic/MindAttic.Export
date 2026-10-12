@@ -107,6 +107,24 @@ public sealed class MarkdownRenderer : IManuscriptRenderer
                 md.AppendLine(prefix + "---");
                 md.AppendLine(prefix.TrimEnd());
                 break;
+            case StanzaBlock stanza:
+                // Two trailing spaces: a Markdown hard line break, so the stanza stays one block.
+                for (var i = 0; i < stanza.Lines.Count; i++)
+                    md.AppendLine(prefix + stanza.Lines[i] + (i < stanza.Lines.Count - 1 ? "  " : ""));
+                md.AppendLine(prefix.TrimEnd());
+                break;
+            case ScriptBlock script:
+                // Fountain-compatible: cue and speech hang together; headings, cues and
+                // transitions upper case; a transition is forced with '>'.
+                if (TextRenderer.HangsUnderCue(script.Element)) TextRenderer.TrimBlankLine(md);
+                md.AppendLine(prefix + script.Element switch
+                {
+                    ScriptElement.SceneHeading or ScriptElement.Character => script.Text.Trim().ToUpperInvariant(),
+                    ScriptElement.Transition => "> " + script.Text.Trim().ToUpperInvariant(),
+                    _ => script.Text.Trim()
+                });
+                md.AppendLine(prefix.TrimEnd());
+                break;
         }
     }
 

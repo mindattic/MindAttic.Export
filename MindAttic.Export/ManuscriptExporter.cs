@@ -2,6 +2,7 @@ using MindAttic.Export.Metadata;
 using MindAttic.Export.Model;
 using MindAttic.Export.Paths;
 using MindAttic.Export.Renderers;
+using MindAttic.Export.Text;
 
 namespace MindAttic.Export;
 
@@ -104,6 +105,8 @@ public sealed class ManuscriptExporter
             ListBlock l => l.Items.Sum(i => Words(i)),
             QuoteBlock q => q.Blocks.Sum(Words),
             TableBlock t => t.Rows.Sum(r => r.Cells.Sum(c => Words(c))),
+            StanzaBlock s => s.Lines.Sum(l => ReadingInfo.CountWords(ProseInline.StripFormatting(l))),
+            ScriptBlock s => ReadingInfo.CountWords(ProseInline.StripFormatting(s.Text)),
             _ => 0
         };
     }

@@ -90,9 +90,48 @@ public sealed class TextRenderer : IManuscriptRenderer
                 sb.AppendLine(indent + "* * *");
                 sb.AppendLine();
                 break;
+            case StanzaBlock stanza:
+                foreach (var line in stanza.Lines)
+                    sb.AppendLine(indent + ProseInline.StripFormatting(line));
+                sb.AppendLine();
+                break;
+            case ScriptBlock script:
+                if (HangsUnderCue(script.Element)) TrimBlankLine(sb);
+                sb.AppendLine(indent + ScriptLine(script));
+                sb.AppendLine();
+                break;
             case MarkerBlock:
                 break;
         }
+    }
+
+    /// <summary>Dialogue and parentheticals sit directly under their cue, with no blank line.</summary>
+    internal static bool HangsUnderCue(ScriptElement element) =>
+        element is ScriptElement.Dialogue or ScriptElement.Parenthetical;
+
+    /// <summary>Drop the blank line the previous block wrote, so the next line hangs under it.</summary>
+    internal static void TrimBlankLine(StringBuilder sb)
+    {
+        var blank = Environment.NewLine + Environment.NewLine;
+        if (sb.Length >= blank.Length && sb.ToString(sb.Length - blank.Length, blank.Length) == blank)
+            sb.Length -= Environment.NewLine.Length;
+    }
+
+    /// <summary>A screenplay element as a monospace line: the indents are the standard ones at ten
+    /// characters to the inch (cue 2.0", parenthetical 1.5", dialogue 1.0"); transitions are set
+    /// flush right on a 60-column line.</summary>
+    private static string ScriptLine(ScriptBlock script)
+    {
+        var text = ProseInline.StripFormatting(script.Text).Trim();
+        return script.Element switch
+        {
+            ScriptElement.SceneHeading => text.ToUpperInvariant(),
+            ScriptElement.Character => new string(' ', 20) + text.ToUpperInvariant(),
+            ScriptElement.Parenthetical => new string(' ', 15) + text,
+            ScriptElement.Dialogue => new string(' ', 10) + text,
+            ScriptElement.Transition => text.ToUpperInvariant().PadLeft(60),
+            _ => text
+        };
     }
 
     internal static IEnumerable<string> SplitLines(string text) =>
