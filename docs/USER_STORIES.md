@@ -1,7 +1,7 @@
 ---
 codex: 1
 project: MindAttic.Export
-code: MAE
+code: M.EXPT
 layer: stories
 status: living
 updated: 2026-10-12
@@ -21,4 +21,4 @@ _Nothing recorded yet._
 
 | ID | Date | Type | Status | Summary | Ref |
 |---|---|---|---|---|---|
-| MAE-T1 | 2026-10-12 | docs | closed | Start the permanent ticket log in USER_STORIES.md | — |
+| M.EXPT-T1 | 2026-10-12 | docs | closed | Start the permanent ticket log in USER_STORIES.md | — |
