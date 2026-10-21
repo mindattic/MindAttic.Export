@@ -344,6 +344,14 @@ public class RendererTests : TempDirTestBase
     // ── PDF ──────────────────────────────────────────────────────────────────
 
     [Test]
+    public void Pdf_table_without_cells_renders()
+    {
+        var path = Temp.File("t.pdf");
+        Assert.DoesNotThrow(() => PdfRenderer.Render(One(new ParagraphBlock("x"), new TableBlock([]), new TableBlock([new MindAttic.Export.Model.TableRow(false, [])])), path, ExportOptions.Document));
+        Assert.That(Support.Pdf.LooksValid(File.ReadAllBytes(path)), Is.True);
+    }
+
+    [Test]
     public void Pdf_fixed_timestamp_makes_output_reproducible()
     {
         var options = ExportOptions.Document with { FixedTimestamp = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) };

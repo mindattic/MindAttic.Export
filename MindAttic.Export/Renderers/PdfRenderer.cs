@@ -228,7 +228,9 @@ public sealed class PdfRenderer : IManuscriptRenderer
 
             case TableBlock table:
             {
-                var columns = table.Rows.Count == 0 ? 1 : table.Rows.Max(r => r.Cells.Count);
+                var columns = table.Rows.Count == 0 ? 0 : table.Rows.Max(r => r.Cells.Count);
+                // QuestPDF rejects a table without columns; a table with no cells prints nothing.
+                if (columns == 0) break;
                 col.Item().PaddingVertical(6).Table(tb =>
                 {
                     // Columns weighted by their longest cell (square-root damped, so a long prose
