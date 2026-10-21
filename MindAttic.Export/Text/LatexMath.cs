@@ -203,7 +203,8 @@ public static class LatexMath
                 else if (s[j] == '}') depth--;
                 j++;
             }
-            return (s[(i + 1)..Math.Max(i + 1, j - 1)], j);
+            // An unclosed group runs to the end of the input; only a closing brace is dropped.
+            return (s[(i + 1)..(depth == 0 ? j - 1 : j)], j);
         }
         if (s[i] == '\\')
         {

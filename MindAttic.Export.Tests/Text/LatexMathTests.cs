@@ -238,4 +238,11 @@ public class LatexMathTests
         var unbalanced = string.Concat(Enumerable.Repeat("\\frac{", 300));
         Assert.DoesNotThrow(() => LatexMath.ToSpans(unbalanced));
     }
+
+    [TestCase(@"x^{2", "x2")]
+    [TestCase(@"\frac{ab", "ab/")]
+    [TestCase(@"\sqrt{xy", "√(xy)")]
+    [TestCase(@"\text{GDP", "GDP")]
+    public void Unclosed_group_keeps_its_last_character(string latex, string plain) =>
+        Assert.That(LatexMath.ToPlainText(latex), Is.EqualTo(plain));
 }
