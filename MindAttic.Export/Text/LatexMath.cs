@@ -119,6 +119,15 @@ public static class LatexMath
                 }
                 else if (name is "sqrt")
                 {
+                    // Optional index: \sqrt[3]{x} is a cube root, set as a raised 3 before the radical.
+                    var k = SkipSpace(s, i);
+                    if (k < s.Length && s[k] == '[')
+                    {
+                        var close = s.IndexOf(']', k + 1);
+                        var end = close < 0 ? s.Length : close;
+                        Convert(s[(k + 1)..end], outp, style | ProseInline.Style.Superscript, compact: true);
+                        i = close < 0 ? s.Length : close + 1;
+                    }
                     var (arg, n1) = Group(s, i);
                     i = n1;
                     outp.Add("√(", style);

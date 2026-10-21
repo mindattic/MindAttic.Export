@@ -254,4 +254,11 @@ public class LatexMathTests
     [TestCase(@"x^{\mathrm{T}}", "[i:x][^:T]")]
     public void Math_font_commands_resolve_nested_commands(string latex, string styled) =>
         Assert.That(Styled(LatexMath.ToSpans(latex)), Is.EqualTo(styled));
+
+    [TestCase(@"\sqrt[3]{x}", "[^:3]√([i:x])")]
+    [TestCase(@"\sqrt[n]{a+b}", "[i^:n]√([i:a] + [i:b])")]
+    [TestCase(@"\sqrt [3] {8}", "[^:3]√(8)")]
+    [TestCase(@"\sqrt[3", "[^:3]√()")]
+    public void Sqrt_with_an_index_raises_the_index(string latex, string styled) =>
+        Assert.That(Styled(LatexMath.ToSpans(latex)), Is.EqualTo(styled));
 }
