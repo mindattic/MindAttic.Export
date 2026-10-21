@@ -271,6 +271,39 @@ public class MarkdownManuscriptReaderTests : TempDirTestBase
         Assert.That(list.Items[1].Text, Is.EqualTo("d"));
     }
 
+    [Test]
+    public void Code_block_inside_a_list_item_is_kept_in_order()
+    {
+        var blocks = Read("1. first\n\n   ```\n   run this\n   ```\n\n2. second\n3. third\n").Single().Blocks;
+        Assert.That(blocks, Has.Count.EqualTo(3));
+        var head = (ListBlock)blocks[0];
+        Assert.That(head.Items.Select(i => i.Text), Is.EqualTo(new[] { "first" }));
+        Assert.That(head.Start, Is.EqualTo(1));
+        var code = (Paragraph)blocks[1];
+        Assert.That(code.Role, Is.EqualTo(ParagraphRole.Preformatted));
+        Assert.That(code.Text, Is.EqualTo("run this"));
+        var tail = (ListBlock)blocks[2];
+        Assert.That(tail.Items.Select(i => i.Text), Is.EqualTo(new[] { "second", "third" }));
+        Assert.That(tail.Start, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void Quote_in_the_last_list_item_follows_the_list_without_an_empty_list()
+    {
+        var blocks = Read("- a\n- b\n\n  > said\n").Single().Blocks;
+        Assert.That(blocks, Has.Count.EqualTo(2));
+        Assert.That(((ListBlock)blocks[0]).Items.Select(i => i.Text), Is.EqualTo(new[] { "a", "b" }));
+        Assert.That(((Paragraph)((QuoteBlock)blocks[1]).Blocks.Single()).Text, Is.EqualTo("said"));
+    }
+
+    [Test]
+    public void Code_block_inside_a_nested_list_item_is_kept()
+    {
+        var blocks = Read("- a\n  - b\n\n        code\n- c\n").Single().Blocks;
+        Assert.That(blocks.OfType<Paragraph>().Single(p => p.Role == ParagraphRole.Preformatted).Text, Is.EqualTo("code"));
+        Assert.That(blocks.OfType<ListBlock>().SelectMany(l => l.Items).Select(i => i.Text), Is.EqualTo(new[] { "a; b", "c" }));
+    }
+
     // ── quotes, code, rules, tables ──────────────────────────────────────────
 
     [Test]

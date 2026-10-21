@@ -187,16 +187,26 @@ public static class MarkdownManuscriptReader
                 break;
             case MdList list:
             {
+                var start = list.IsOrdered && int.TryParse(list.OrderedStart, out var s) ? s : 1;
+                var number = start;
                 var items = new List<Paragraph>();
                 foreach (var item in list.OfType<ListItemBlock>())
                 {
                     var raw = new StringBuilder();
                     var spans = new List<ProseInline.Span>();
-                    AppendItem(item, source, raw, spans);
+                    var extra = new List<Block>();
+                    AppendItem(item, source, raw, spans, extra, hanging);
                     items.Add(new Paragraph(raw.ToString(), spans));
+                    if (extra.Count == 0) continue;
+                    // A list item's code block, quote, table or math has no place in a flat item:
+                    // close the list after this item, emit the blocks, and continue the numbering.
+                    yield return new Model.ListBlock(list.IsOrdered, number, items);
+                    number += items.Count;
+                    items = [];
+                    foreach (var b in extra) yield return b;
                 }
-                var start = list.IsOrdered && int.TryParse(list.OrderedStart, out var s) ? s : 1;
-                yield return new Model.ListBlock(list.IsOrdered, start, items);
+                if (items.Count > 0 || number == start)
+                    yield return new Model.ListBlock(list.IsOrdered, number, items);
                 break;
             }
             case MdQuote quote:
@@ -244,7 +254,9 @@ public static class MarkdownManuscriptReader
 
     // The model's list items are flat paragraphs, so a nested list is folded into its parent item
     // ("a; b; c") rather than lost.
-    private static void AppendItem(ListItemBlock item, string source, StringBuilder raw, List<ProseInline.Span> spans)
+    // Any other child (code, quote, table, math) is converted into extra, to follow the item.
+    private static void AppendItem(ListItemBlock item, string source, StringBuilder raw, List<ProseInline.Span> spans,
+                                   List<Block> extra, bool hanging)
     {
         foreach (var child in item)
         {
@@ -260,8 +272,12 @@ public static class MarkdownManuscriptReader
                 {
                     // The item's paragraph adds the space after the semicolon.
                     if (raw.Length > 0) { raw.Append(';'); spans.Add(new ProseInline.Span(";", ProseInline.Style.None)); }
-                    AppendItem(sub, source, raw, spans);
+                    AppendItem(sub, source, raw, spans, extra, hanging);
                 }
+            }
+            else
+            {
+                extra.AddRange(Convert(child, source, hanging));
             }
         }
     }
