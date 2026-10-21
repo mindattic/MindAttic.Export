@@ -129,5 +129,8 @@ public sealed class MarkdownRenderer : IManuscriptRenderer
     }
 
     private static string Row(TableRow row) =>
-        "| " + string.Join(" | ", row.Cells.Select(c => c.Text.Replace("|", "\\|"))) + " |";
+        "| " + string.Join(" | ", row.Cells.Select(c => UnescapedPipe.Replace(c.Text, "\\|"))) + " |";
+
+    // Cell text read from Markdown already carries its "\|" escapes.
+    private static readonly System.Text.RegularExpressions.Regex UnescapedPipe = new(@"(?<!\\)\|");
 }

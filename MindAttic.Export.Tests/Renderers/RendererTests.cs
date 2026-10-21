@@ -101,6 +101,13 @@ public class RendererTests : TempDirTestBase
         Assert.That(MarkdownRenderer.Render(m), Is.EqualTo(expected));
     }
 
+    [Test]
+    public void Md_table_keeps_an_already_escaped_pipe()
+    {
+        var m = One(new TableBlock([new Model.TableRow(true, [new ParagraphBlock("a \\| b"), new ParagraphBlock("c|d")])]));
+        Assert.That(MarkdownRenderer.Render(m), Does.Contain("| a \\| b | c\\|d |"));
+    }
+
     // ── EPUB ─────────────────────────────────────────────────────────────────
 
     [Test]
