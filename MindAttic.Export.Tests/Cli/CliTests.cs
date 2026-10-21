@@ -142,6 +142,22 @@ public class CliTests : TempDirTestBase
     }
 
     [Test]
+    public void Non_numeric_version_is_a_usage_error()
+    {
+        var run = Cli(Temp.Path, "--config", "x.json", "--version", "abc");
+        Assert.That(run.ExitCode, Is.EqualTo(2));
+        Assert.That(run.Err, Does.Contain("--version needs a whole number"));
+    }
+
+    [Test]
+    public void Flag_without_its_value_is_a_usage_error()
+    {
+        var run = Cli(Temp.Path, "--config");
+        Assert.That(run.ExitCode, Is.EqualTo(2));
+        Assert.That(run.Err, Does.Contain("--config needs a value."));
+    }
+
+    [Test]
     public void No_matching_sources_exits_with_one()
     {
         var config = Config(sources: "\"chapters/*.nothing\"");

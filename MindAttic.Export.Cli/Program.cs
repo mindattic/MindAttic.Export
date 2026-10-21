@@ -14,12 +14,26 @@ int? version = null;
 var archive = true;
 for (var i = 0; i < args.Length; i++)
 {
+    if (args[i] is "--config" or "--out" or "--formats" or "--version" && i + 1 >= args.Length)
+    {
+        Console.Error.WriteLine($"{args[i]} needs a value.");
+        PrintUsage();
+        return 2;
+    }
     switch (args[i])
     {
-        case "--config": configPath = Next(ref i); break;
-        case "--out": outDir = Next(ref i); break;
-        case "--formats": formats = Next(ref i); break;
-        case "--version": version = int.Parse(Next(ref i)); break;
+        case "--config": configPath = args[++i]; break;
+        case "--out": outDir = args[++i]; break;
+        case "--formats": formats = args[++i]; break;
+        case "--version":
+            if (!int.TryParse(args[++i], out var v))
+            {
+                Console.Error.WriteLine($"--version needs a whole number, not '{args[i]}'.");
+                PrintUsage();
+                return 2;
+            }
+            version = v;
+            break;
         case "--no-archive": archive = false; break;
         case "-h" or "--help":
             PrintUsage();
@@ -67,8 +81,6 @@ foreach (var (format, path) in result.Files) Console.WriteLine($"  {format,-4} {
 if (result.DescriptionPath is not null) Console.WriteLine($"  desc {result.DescriptionPath}");
 if (result.KeywordsPath is not null) Console.WriteLine($"  keys {result.KeywordsPath}");
 return 0;
-
-string Next(ref int i) => i + 1 < args.Length ? args[++i] : throw new ArgumentException($"{args[i]} needs a value.");
 
 static void PrintUsage() => Console.WriteLine(
     "Usage: mindattic-export --config <export.json> [--out <dir>] [--formats docx,epub,pdf,txt,md] [--version N] [--no-archive]");
