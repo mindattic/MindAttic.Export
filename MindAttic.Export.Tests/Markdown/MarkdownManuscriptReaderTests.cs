@@ -261,6 +261,16 @@ public class MarkdownManuscriptReaderTests : TempDirTestBase
         Assert.That(Plain(list.Items[0].Runs), Is.EqualTo("first para second para"));
     }
 
+    [Test]
+    public void Nested_list_items_fold_into_their_parent_item()
+    {
+        var list = (ListBlock)Read("- a\n  - b\n  - c\n- d\n").Single().Blocks.Single();
+        Assert.That(list.Items, Has.Count.EqualTo(2));
+        Assert.That(list.Items[0].Text, Is.EqualTo("a; b; c"));
+        Assert.That(Plain(list.Items[0].Runs), Is.EqualTo("a; b; c"));
+        Assert.That(list.Items[1].Text, Is.EqualTo("d"));
+    }
+
     // ── quotes, code, rules, tables ──────────────────────────────────────────
 
     [Test]

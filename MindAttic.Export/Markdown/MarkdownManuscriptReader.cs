@@ -190,15 +190,10 @@ public static class MarkdownManuscriptReader
                 var items = new List<Paragraph>();
                 foreach (var item in list.OfType<ListItemBlock>())
                 {
-                    var paragraphs = item.OfType<MdParagraph>().ToList();
-                    var raw = string.Join(" ", paragraphs.Select(x => Raw(source, x.Inline)));
+                    var raw = new StringBuilder();
                     var spans = new List<ProseInline.Span>();
-                    foreach (var x in paragraphs)
-                    {
-                        if (spans.Count > 0) spans.Add(new ProseInline.Span(" ", ProseInline.Style.None));
-                        spans.AddRange(Spans(x.Inline));
-                    }
-                    items.Add(new Paragraph(raw, spans));
+                    AppendItem(item, source, raw, spans);
+                    items.Add(new Paragraph(raw.ToString(), spans));
                 }
                 var start = list.IsOrdered && int.TryParse(list.OrderedStart, out var s) ? s : 1;
                 yield return new Model.ListBlock(list.IsOrdered, start, items);
@@ -244,6 +239,30 @@ public static class MarkdownManuscriptReader
                     foreach (var converted in Convert(child, source, hanging))
                         yield return converted;
                 break;
+        }
+    }
+
+    // The model's list items are flat paragraphs, so a nested list is folded into its parent item
+    // ("a; b; c") rather than lost.
+    private static void AppendItem(ListItemBlock item, string source, StringBuilder raw, List<ProseInline.Span> spans)
+    {
+        foreach (var child in item)
+        {
+            if (child is MdParagraph p)
+            {
+                if (raw.Length > 0) { raw.Append(' '); spans.Add(new ProseInline.Span(" ", ProseInline.Style.None)); }
+                raw.Append(Raw(source, p.Inline));
+                spans.AddRange(Spans(p.Inline));
+            }
+            else if (child is MdList nested)
+            {
+                foreach (var sub in nested.OfType<ListItemBlock>())
+                {
+                    // The item's paragraph adds the space after the semicolon.
+                    if (raw.Length > 0) { raw.Append(';'); spans.Add(new ProseInline.Span(";", ProseInline.Style.None)); }
+                    AppendItem(sub, source, raw, spans);
+                }
+            }
         }
     }
 
