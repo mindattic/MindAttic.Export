@@ -563,4 +563,13 @@ public class RendererTests : TempDirTestBase
         Assert.That(texts, Does.Contain("one").And.Contain("two"));
         Assert.That(texts.Any(t => t.Contains('\n')), Is.False);
     }
+
+    [Test]
+    public void Epub_escapes_the_book_identifier_and_language()
+    {
+        var path = Temp.File("id.epub");
+        var m = new Manuscript { Title = "T", Language = "en\"x", Chapters = [new Chapter(null, [new ParagraphBlock("x")])] };
+        EpubRenderer.Render(m, path, ExportOptions.ProseBook with { BookIdentifier = "https://example.com/?a=1&b=<2>" });
+        AssertEpubXmlParses(path);
+    }
 }

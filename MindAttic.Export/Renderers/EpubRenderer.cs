@@ -30,7 +30,8 @@ public sealed class EpubRenderer : IManuscriptRenderer
         var bookUuid = options.BookIdentifier ?? $"urn:uuid:{Guid.NewGuid()}";
         var modified = options.FixedTimestamp ?? DateTime.UtcNow;
 
-        var lang = string.IsNullOrWhiteSpace(manuscript.Language) ? "en" : manuscript.Language;
+        // Escaped once here: it lands in xml:lang attributes as well as dc:language.
+        var lang = Esc(string.IsNullOrWhiteSpace(manuscript.Language) ? "en" : manuscript.Language);
 
         using var fs = File.Create(path);
         using var zip = new ZipArchive(fs, ZipArchiveMode.Create);
@@ -273,10 +274,10 @@ public sealed class EpubRenderer : IManuscriptRenderer
         sb.AppendLine("""<?xml version="1.0" encoding="UTF-8"?>""");
         sb.AppendLine($"""<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="{lang}">""");
         sb.AppendLine("""<metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">""");
-        sb.AppendLine($"""  <dc:identifier id="bookid">{uuid}</dc:identifier>""");
+        sb.AppendLine($"""  <dc:identifier id="bookid">{Esc(uuid)}</dc:identifier>""");
         sb.AppendLine($"""  <dc:title>{Esc(m.Title)}</dc:title>""");
         sb.AppendLine($"""  <dc:creator opf:role="aut">{Esc(author)}</dc:creator>""");
-        sb.AppendLine($"""  <dc:language>{Esc(lang)}</dc:language>""");
+        sb.AppendLine($"""  <dc:language>{lang}</dc:language>""");
         if (!string.IsNullOrWhiteSpace(m.Description))
             sb.AppendLine($"""  <dc:description>{Esc(m.Description)}</dc:description>""");
         sb.AppendLine($"""  <meta property="dcterms:modified">{modified.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)}</meta>""");
