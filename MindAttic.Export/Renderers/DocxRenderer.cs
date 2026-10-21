@@ -665,7 +665,14 @@ public sealed class DocxRenderer : IManuscriptRenderer
                 case QuoteBlock q:
                     foreach (var inner in q.Blocks)
                     {
-                        if (inner is ParagraphBlock qp)
+                        if (inner is ParagraphBlock { Role: not ParagraphRole.Body } rp)
+                        {
+                            // Code keeps its line breaks and a reference entry its hanging indent;
+                            // folding them into a justified quote paragraph lost both.
+                            wordCount += ReadingInfo.CountWords(string.Concat(rp.Runs.Select(s => s.Text)));
+                            output.Add(Paragraph(rp));
+                        }
+                        else if (inner is ParagraphBlock qp)
                         {
                             wordCount += ReadingInfo.CountWords(string.Concat(qp.Runs.Select(s => s.Text)));
                             var p = new Paragraph(new ParagraphProperties(

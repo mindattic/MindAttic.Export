@@ -551,4 +551,16 @@ public class RendererTests : TempDirTestBase
         Assert.That(BodyXml(docx), Does.Contain("a🙂b"));
         Assert.That(EpubRenderer.Esc("a🙂b"), Is.EqualTo("a🙂b"));
     }
+
+    [Test]
+    public void Docx_code_block_inside_a_quote_keeps_its_line_breaks()
+    {
+        var path = Temp.File("q.docx");
+        var code = new ParagraphBlock("one\ntwo", [S("one\ntwo", ProseInline.Style.Code)], ParagraphRole.Preformatted);
+        DocxRenderer.Render(One(new QuoteBlock([code])), path, ExportOptions.Document);
+        using var doc = WordprocessingDocument.Open(path, false);
+        var texts = doc.MainDocumentPart!.Document!.Body!.Descendants<W.Text>().Select(t => t.Text).ToList();
+        Assert.That(texts, Does.Contain("one").And.Contain("two"));
+        Assert.That(texts.Any(t => t.Contains('\n')), Is.False);
+    }
 }
