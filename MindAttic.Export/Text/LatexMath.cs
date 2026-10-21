@@ -103,7 +103,19 @@ public static class LatexMath
                         "mathbf" or "textbf" => ProseInline.Style.Bold,
                         _ => ProseInline.Style.None
                     };
-                    outp.Add(arg, (style & ~ProseInline.Style.Italic) | extra);
+                    if (name.StartsWith("text", StringComparison.Ordinal))
+                    {
+                        // Text mode: the argument is words, written as is.
+                        outp.Add(arg, (style & ~ProseInline.Style.Italic) | extra);
+                    }
+                    else
+                    {
+                        // Math mode in another face: commands inside (\mathbf{\mu}) still resolve.
+                        var inner = new SpanBuilder();
+                        Convert(arg, inner, style, compact);
+                        foreach (var span in inner.Build())
+                            outp.Add(span.Text, (span.Style & ~ProseInline.Style.Italic) | extra);
+                    }
                 }
                 else if (name is "sqrt")
                 {

@@ -245,4 +245,13 @@ public class LatexMathTests
     [TestCase(@"\text{GDP", "GDP")]
     public void Unclosed_group_keeps_its_last_character(string latex, string plain) =>
         Assert.That(LatexMath.ToPlainText(latex), Is.EqualTo(plain));
+
+    [TestCase(@"\mathbf{\mu}", "[b:μ]")]
+    [TestCase(@"\mathrm{\Delta}x", "Δ[i:x]")]
+    [TestCase(@"\operatorname{\alpha}", "α")]
+    [TestCase(@"\mathit{\beta}", "[i:β]")]
+    [TestCase(@"\mathbf{x}_i", "[b:x][i_:i]")]
+    [TestCase(@"x^{\mathrm{T}}", "[i:x][^:T]")]
+    public void Math_font_commands_resolve_nested_commands(string latex, string styled) =>
+        Assert.That(Styled(LatexMath.ToSpans(latex)), Is.EqualTo(styled));
 }
