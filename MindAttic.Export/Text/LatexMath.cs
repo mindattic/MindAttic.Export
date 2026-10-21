@@ -194,7 +194,8 @@ public static class LatexMath
         Convert(body, inner, style, compact);
         var spans = inner.Build();
         var text = string.Concat(spans.Select(x => x.Text));
-        var simple = !text.Any(ch => ch is ' ' or '+' or '−' or '-' or '=' or '/' or ' ');
+        // A product or ± inside a fraction term needs brackets too: a/(b·c), not a/b·c.
+        var simple = !text.Any(ch => ch is ' ' or '+' or '−' or '-' or '=' or '/' or ' ' or '·' or '×' or '÷' or '±' or '∓');
         if (!simple) outp.Add("(", style);
         foreach (var span in spans) outp.Add(span.Text, span.Style);
         if (!simple) outp.Add(")", style);

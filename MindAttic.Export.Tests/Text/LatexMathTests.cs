@@ -268,4 +268,11 @@ public class LatexMathTests
     [TestCase(@"x = 1.5", "x = 1.5")]
     public void Null_delimiter_prints_nothing(string latex, string plain) =>
         Assert.That(LatexMath.ToPlainText(latex), Is.EqualTo(plain));
+
+    [TestCase(@"\frac{a}{b \cdot c}", "a/(b·c)")]
+    [TestCase(@"\frac{a \times b}{c}", "(a×b)/c")]
+    [TestCase(@"\frac{1}{x \pm y}", "1/(x±y)")]
+    [TestCase(@"\frac{a}{bc}", "a/bc")]
+    public void Fraction_term_with_a_product_is_bracketed(string latex, string plain) =>
+        Assert.That(LatexMath.ToPlainText(latex), Is.EqualTo(plain));
 }
