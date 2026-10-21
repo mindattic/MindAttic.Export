@@ -509,4 +509,46 @@ public class RendererTests : TempDirTestBase
         Assert.That(File.ReadAllText(Temp.File("R.md")), Is.EqualTo("# B\n\ny\n"));
         Assert.That(Directory.GetFiles(Temp.Sub("Archives")), Has.Length.EqualTo(1));
     }
+
+    private static void AssertEpubXmlParses(string path)
+    {
+        using var zip = System.IO.Compression.ZipFile.OpenRead(path);
+        foreach (var e in zip.Entries.Where(e => e.FullName.EndsWith(".xhtml") || e.FullName.EndsWith(".opf")))
+        {
+            var text = new StreamReader(e.Open()).ReadToEnd();
+            using var reader = System.Xml.XmlReader.Create(new StringReader(text), new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Ignore });
+            Assert.DoesNotThrow(() => System.Xml.Linq.XDocument.Load(reader), e.FullName);
+        }
+    }
+
+    [TestCase(0xD800)]
+    [TestCase(0xDC00)]
+    [TestCase(0xFFFE)]
+    [TestCase(0xFFFF)]
+    public void Docx_and_epub_scrub_lone_surrogates_and_xml_noncharacters(int code)
+    {
+        var bad = ((char)code).ToString();
+        var m = new Manuscript
+        {
+            Title = "T" + bad,
+            Author = "A" + bad,
+            Chapters = [new Chapter("C" + bad, [new ParagraphBlock("x" + bad + "y")]), new Chapter("D", [new ParagraphBlock("z")])]
+        };
+        var docx = Temp.File("s.docx");
+        Assert.DoesNotThrow(() => DocxRenderer.Render(m, docx, ExportOptions.ProseBook with { IncludeToc = true }));
+        Assert.That(BodyXml(docx), Does.Contain("xy"));
+        var epub = Temp.File("s.epub");
+        EpubRenderer.Render(m, epub, ExportOptions.ProseBook);
+        AssertEpubXmlParses(epub);
+    }
+
+    [Test]
+    public void Docx_and_epub_keep_a_valid_surrogate_pair()
+    {
+        var m = One(new ParagraphBlock("a🙂b"));
+        var docx = Temp.File("e.docx");
+        DocxRenderer.Render(m, docx, ExportOptions.ProseBook);
+        Assert.That(BodyXml(docx), Does.Contain("a🙂b"));
+        Assert.That(EpubRenderer.Esc("a🙂b"), Is.EqualTo("a🙂b"));
+    }
 }

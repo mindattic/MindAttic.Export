@@ -323,7 +323,7 @@ public sealed class EpubRenderer : IManuscriptRenderer
 
     // XML 1.0 forbids C0 controls other than tab/LF/CR; one stray \f or \v pasted into a beat made
     // the whole EPUB unparseable.
-    private static readonly Regex XmlIllegalChars = new(@"[\x00-\x08\x0B\x0C\x0E-\x1F]", RegexOptions.Compiled);
+    private static readonly Regex XmlIllegalChars = new(@"[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]", RegexOptions.Compiled);
 
     public static string Esc(string? s) =>
         XmlIllegalChars.Replace(s ?? "", "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");

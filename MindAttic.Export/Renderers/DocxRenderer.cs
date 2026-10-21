@@ -255,7 +255,7 @@ public sealed class DocxRenderer : IManuscriptRenderer
     private static string TocAnchor(int n) => $"_Toc{10000 + n}";
 
     private static readonly System.Text.RegularExpressions.Regex XmlIllegalChars =
-        new(@"[\x00-\x08\x0B\x0C\x0E-\x1F]", System.Text.RegularExpressions.RegexOptions.Compiled);
+        new(@"[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>Element builders bound to one base font.</summary>
     private sealed class Writer(string serif)
