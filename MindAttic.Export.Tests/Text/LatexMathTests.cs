@@ -261,4 +261,11 @@ public class LatexMathTests
     [TestCase(@"\sqrt[3", "[^:3]√()")]
     public void Sqrt_with_an_index_raises_the_index(string latex, string styled) =>
         Assert.That(Styled(LatexMath.ToSpans(latex)), Is.EqualTo(styled));
+
+    [TestCase(@"\left\{ x \right.", "{x")]
+    [TestCase(@"\left. f \right|_0^1", "f|01")]
+    [TestCase(@"\left( x \right)", "(x)")]
+    [TestCase(@"x = 1.5", "x = 1.5")]
+    public void Null_delimiter_prints_nothing(string latex, string plain) =>
+        Assert.That(LatexMath.ToPlainText(latex), Is.EqualTo(plain));
 }

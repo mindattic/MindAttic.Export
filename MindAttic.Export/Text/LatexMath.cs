@@ -134,6 +134,12 @@ public static class LatexMath
                     Convert(arg, outp, style, compact);
                     outp.Add(")", style);
                 }
+                else if (name is "left" or "right")
+                {
+                    // "\left." / "\right." is the null delimiter: it prints nothing.
+                    var k = SkipSpace(s, i);
+                    if (k < s.Length && s[k] == '.') i = k + 1;
+                }
                 else if (Symbols.TryGetValue(name, out var sym))
                 {
                     outp.Add(sym, style);
