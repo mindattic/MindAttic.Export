@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace MindAttic.Export.Paths;
@@ -32,7 +33,7 @@ public static class ExportArchive
             var archiveDir = Path.Combine(nodeDir, ArchivesFolder, $"v{version}");
             Directory.CreateDirectory(archiveDir);
             var destination = Path.Combine(archiveDir, name);
-            if (File.Exists(destination)) destination = Path.Combine(archiveDir, $"{Path.GetFileNameWithoutExtension(name)}__{DateTime.UtcNow:yyyyMMddHHmmssfff}{Path.GetExtension(name)}");
+            if (File.Exists(destination)) destination = Path.Combine(archiveDir, $"{Path.GetFileNameWithoutExtension(name)}__{Stamp()}{Path.GetExtension(name)}");
             try
             {
                 File.Copy(file, destination, overwrite: false);
@@ -54,12 +55,16 @@ public static class ExportArchive
             var name = Path.GetFileName(file);
             var destination = Path.Combine(archiveDir, name);
             if (File.Exists(destination))
-                destination = Path.Combine(archiveDir, $"{Path.GetFileNameWithoutExtension(name)}__{DateTime.UtcNow:yyyyMMddHHmmssfff}{Path.GetExtension(name)}");
+                destination = Path.Combine(archiveDir, $"{Path.GetFileNameWithoutExtension(name)}__{Stamp()}{Path.GetExtension(name)}");
             try { File.Copy(file, destination, overwrite: false); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
     }
+
+    // Invariant: under a culture whose default calendar is not Gregorian (th-TH, ar-SA) the
+    // current-culture "yyyy" wrote a different year into the archive name than ArtifactWriter does.
+    private static string Stamp() => DateTime.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
 
     /// <summary>The <c>V&lt;N&gt;</c> in a bundle file name, if any.</summary>
     public static int? ExtractVersion(string fileName)

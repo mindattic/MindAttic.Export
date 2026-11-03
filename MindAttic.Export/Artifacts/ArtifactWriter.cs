@@ -73,7 +73,7 @@ public static class ArtifactWriter
                                                       ArtifactOptions? options = null, CancellationToken ct = default)
     {
         options ??= ArtifactOptions.Default;
-        var target = await PrepareTargetAsync(directory, fileName, options);
+        var (target, archivePending) = await PrepareTargetAsync(directory, fileName, options);
         if (!options.Atomic)
         {
             await using var direct = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None);
@@ -86,6 +86,7 @@ public static class ArtifactWriter
         {
             await using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 await write(stream, ct);
+            if (archivePending && File.Exists(target)) ArchiveExisting(target);
             File.Move(temp, target, overwrite: true);
         }
         finally
@@ -114,7 +115,7 @@ public static class ArtifactWriter
                                                        ArtifactOptions? options = null, CancellationToken ct = default)
     {
         options ??= ArtifactOptions.Default;
-        var target = await PrepareTargetAsync(directory, fileName, options);
+        var (target, archivePending) = await PrepareTargetAsync(directory, fileName, options);
         if (!options.Atomic)
         {
             await render(target, ct);
@@ -124,6 +125,7 @@ public static class ArtifactWriter
         try
         {
             await render(temp, ct);
+            if (archivePending && File.Exists(target)) ArchiveExisting(target);
             File.Move(temp, target, overwrite: true);
         }
         finally
@@ -133,13 +135,16 @@ public static class ArtifactWriter
         return target;
     }
 
-    private static Task<string> PrepareTargetAsync(string directory, string fileName, ArtifactOptions options)
+    // An atomic write archives the existing file only once the new content is complete
+    // (ArchivePending), so a write that throws leaves the live file where it was.
+    private static Task<(string Target, bool ArchivePending)> PrepareTargetAsync(string directory, string fileName, ArtifactOptions options)
     {
         if (string.IsNullOrWhiteSpace(directory)) throw new ArgumentException("An artifact needs a directory.", nameof(directory));
         if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentException("An artifact needs a file name.", nameof(fileName));
         var name = options.SanitizeName ? SanitizeFileName(fileName) : fileName;
         Directory.CreateDirectory(directory);
         var target = Path.Combine(directory, name);
+        var archivePending = false;
 
         if (File.Exists(target))
         {
@@ -151,13 +156,14 @@ public static class ArtifactWriter
                     target = UniquePath(directory, name);
                     break;
                 case ExistingArtifact.Archive:
-                    ArchiveExisting(target);
+                    if (options.Atomic) archivePending = true;
+                    else ArchiveExisting(target);
                     break;
                 case ExistingArtifact.Overwrite:
                     break;
             }
         }
-        return Task.FromResult(target);
+        return Task.FromResult((target, archivePending));
     }
 
     /// <summary>Moves an existing file into <c>Archives\</c> beside it with a UTC timestamp suffix.</summary>

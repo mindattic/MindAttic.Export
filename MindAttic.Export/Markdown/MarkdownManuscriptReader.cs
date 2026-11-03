@@ -162,12 +162,14 @@ public static class MarkdownManuscriptReader
         return m.Success ? heading[m.Length..] : heading;
     }
 
-    private static IEnumerable<Block> Convert(Markdig.Syntax.Block block, string source, bool hanging)
+    // quoted: the block sits inside a block quote, so its continuation lines carry "> " markers
+    // that are container syntax, not paragraph text.
+    private static IEnumerable<Block> Convert(Markdig.Syntax.Block block, string source, bool hanging, bool quoted = false)
     {
         switch (block)
         {
             case MdHeading h:
-                yield return new Model.HeadingBlock(h.Level, Raw(source, h.Inline), Spans(h.Inline));
+                yield return new Model.HeadingBlock(h.Level, Raw(source, h.Inline, quoted), Spans(h.Inline));
                 break;
             case MdMath math:
             {
@@ -183,7 +185,7 @@ public static class MarkdownManuscriptReader
                 break;
             }
             case MdParagraph p:
-                yield return new Paragraph(Raw(source, p.Inline), Spans(p.Inline), hanging ? ParagraphRole.Hanging : ParagraphRole.Body);
+                yield return new Paragraph(Raw(source, p.Inline, quoted), Spans(p.Inline), hanging ? ParagraphRole.Hanging : ParagraphRole.Body);
                 break;
             case MdList list:
             {
@@ -195,7 +197,7 @@ public static class MarkdownManuscriptReader
                     var raw = new StringBuilder();
                     var spans = new List<ProseInline.Span>();
                     var extra = new List<Block>();
-                    AppendItem(item, source, raw, spans, extra, hanging);
+                    AppendItem(item, source, raw, spans, extra, hanging, quoted);
                     items.Add(new Paragraph(raw.ToString(), spans));
                     if (extra.Count == 0) continue;
                     // A list item's code block, quote, table or math has no place in a flat item:
@@ -212,7 +214,7 @@ public static class MarkdownManuscriptReader
             case MdQuote quote:
             {
                 var inner = new List<Block>();
-                foreach (var child in quote) inner.AddRange(Convert(child, source, hanging));
+                foreach (var child in quote) inner.AddRange(Convert(child, source, hanging, quoted: true));
                 yield return new Model.QuoteBlock(inner);
                 break;
             }
@@ -225,7 +227,7 @@ public static class MarkdownManuscriptReader
                     foreach (var cell in row.OfType<TableCell>())
                     {
                         var p = cell.OfType<MdParagraph>().FirstOrDefault();
-                        cells.Add(p is null ? new Paragraph("") : new Paragraph(Raw(source, p.Inline), Spans(p.Inline)));
+                        cells.Add(p is null ? new Paragraph("") : new Paragraph(Raw(source, p.Inline, quoted), Spans(p.Inline)));
                     }
                     rows.Add(new Model.TableRow(row.IsHeader, cells));
                 }
@@ -246,7 +248,7 @@ public static class MarkdownManuscriptReader
                 break;
             case ContainerBlock container:
                 foreach (var child in container)
-                    foreach (var converted in Convert(child, source, hanging))
+                    foreach (var converted in Convert(child, source, hanging, quoted))
                         yield return converted;
                 break;
         }
@@ -256,14 +258,14 @@ public static class MarkdownManuscriptReader
     // ("a; b; c") rather than lost.
     // Any other child (code, quote, table, math) is converted into extra, to follow the item.
     private static void AppendItem(ListItemBlock item, string source, StringBuilder raw, List<ProseInline.Span> spans,
-                                   List<Block> extra, bool hanging)
+                                   List<Block> extra, bool hanging, bool quoted)
     {
         foreach (var child in item)
         {
             if (child is MdParagraph p)
             {
                 if (raw.Length > 0) { raw.Append(' '); spans.Add(new ProseInline.Span(" ", ProseInline.Style.None)); }
-                raw.Append(Raw(source, p.Inline));
+                raw.Append(Raw(source, p.Inline, quoted));
                 spans.AddRange(Spans(p.Inline));
             }
             else if (child is MdList nested)
@@ -272,18 +274,18 @@ public static class MarkdownManuscriptReader
                 {
                     // The item's paragraph adds the space after the semicolon.
                     if (raw.Length > 0) { raw.Append(';'); spans.Add(new ProseInline.Span(";", ProseInline.Style.None)); }
-                    AppendItem(sub, source, raw, spans, extra, hanging);
+                    AppendItem(sub, source, raw, spans, extra, hanging, quoted);
                 }
             }
             else
             {
-                extra.AddRange(Convert(child, source, hanging));
+                extra.AddRange(Convert(child, source, hanging, quoted));
             }
         }
     }
 
     /// <summary>The paragraph's Markdown source on one line (soft breaks become spaces).</summary>
-    private static string Raw(string source, ContainerInline? inline)
+    private static string Raw(string source, ContainerInline? inline, bool quoted = false)
     {
         if (inline is null) return "";
         var first = inline.FirstChild;
@@ -293,7 +295,9 @@ public static class MarkdownManuscriptReader
         var end = last.Span.End;
         if (start < 0 || end < start || end >= source.Length + 1) return InlineText(inline);
         var raw = source.Substring(start, Math.Min(end - start + 1, source.Length - start));
-        return Regex.Replace(raw, @"\s*\n\s*", " ").Trim();
+        // Inside a block quote every continuation line starts with its "> " markers; they are
+        // container syntax, and leaving them in wrote "> a > b" back out for "> a\n> b".
+        return Regex.Replace(raw, quoted ? @"\s*\n[\s>]*" : @"\s*\n\s*", " ").Trim();
     }
 
     public static string InlineText(ContainerInline? inline) =>
