@@ -80,7 +80,7 @@ var options = ExportOptions.Document with { ImageResolver = new DefaultImageReso
 mindattic-export --config export.json [--out <dir>] [--formats docx,epub,pdf,txt,md] [--version N] [--no-archive]
 ```
 
-`export.json` names the title page, the Markdown sources (wildcards read in ordinal order), the output folder, the formats and the page profile (`letter` or `trade`). See `SyntheticExchangeTheory/export.json` for a complete example. Set `"firstHeadingIsTitle": true` for a single paper (a journal manuscript, a report): the first `#` heading becomes the title and the rest is one continuous document, with its sections as headings and no chapter page breaks.
+`export.json` names the title page, the Markdown sources (wildcards read in ordinal order), the output folder, the formats and the page profile (`letter` or `trade`). See `SyntheticExchangeTheory/export.json` for a complete example. Set `"firstHeadingIsTitle": true` for a single paper (a journal manuscript, a report): the first `#` heading becomes the title and the rest is one continuous document, with its sections as headings and no chapter page breaks. A document with a single `#` chapter keeps that heading in the `.docx` (only Prose books drop a lone chapter heading, `ExportOptions.OmitSingleChapterHeading`), and an EPUB with no chapters still gets a valid one-entry contents nav pointing at the title page.
 
 ## Build, test, pack
 

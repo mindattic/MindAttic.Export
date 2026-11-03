@@ -65,7 +65,9 @@ public sealed record ExportConfig
         },
         IncludeToc = Toc,
         DocxPageNumbers = DocxPageNumbers,
-        FontFamily = FontFamily
+        FontFamily = FontFamily,
+        // export.json describes Markdown documents, not Prose books: a one-chapter document keeps its heading.
+        OmitSingleChapterHeading = false
     };
 
     public MarkdownReaderOptions ToReaderOptions() => new()

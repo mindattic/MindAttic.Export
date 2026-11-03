@@ -168,6 +168,10 @@ public sealed class EpubRenderer : IManuscriptRenderer
             var label = string.IsNullOrWhiteSpace(chapters[i].Heading) ? title : chapters[i].Heading!;
             sb.AppendLine($"""  <li><a href="chapter-{i + 1:D3}.xhtml">{Esc(label)}</a></li>""");
         }
+        // EPUB 3 requires the toc nav's <ol> to hold at least one entry: with no chapters, point
+        // the sole entry at the title page.
+        if (chapters.Count == 0)
+            sb.AppendLine($"""  <li><a href="title.xhtml">{Esc(title)}</a></li>""");
         sb.AppendLine("""</ol></nav></body></html>""");
         return sb.ToString();
     }

@@ -32,6 +32,11 @@ public sealed record ExportOptions
     /// </summary>
     public int? ChapterCount { get; init; }
 
+    /// <summary>The book rule: a story with fewer than two chapters prints no chapter heading in
+    /// the docx (never "Chapter 1"). True for Prose's books (the default); documents set it false,
+    /// since a document's one <c>#</c> heading is its real section heading, not a chapter label.</summary>
+    public bool OmitSingleChapterHeading { get; init; } = true;
+
     /// <summary>Centered page numbers in the docx footer. Prose's KDP manuscript has none.</summary>
     public bool DocxPageNumbers { get; init; }
 
@@ -57,7 +62,8 @@ public sealed record ExportOptions
     {
         Profile = PageProfile.Letter,
         IncludeToc = true,
-        DocxPageNumbers = true
+        DocxPageNumbers = true,
+        OmitSingleChapterHeading = false
     };
 
     /// <summary>Screenplay convention: US Letter, Courier 12pt, page numbers, no contents page.</summary>

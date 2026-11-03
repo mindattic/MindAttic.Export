@@ -47,6 +47,8 @@ public sealed class DocxRenderer : IManuscriptRenderer
         var w = new Writer(options.FontFamily);
         var author = manuscript.Author;
         var chapterCount = options.ChapterCount ?? manuscript.Chapters.Count(c => !string.IsNullOrWhiteSpace(c.Heading));
+        // Books print no heading for a single chapter; documents always print theirs.
+        var printHeadings = chapterCount >= 2 || !options.OmitSingleChapterHeading;
         int wordCount = 0;
         int estimatedPages;
 
@@ -135,7 +137,7 @@ public sealed class DocxRenderer : IManuscriptRenderer
                 // A single-chapter story prints no chapter heading at all — we never
                 // emit "Chapter 1". Headings (and their page breaks) only appear when
                 // the story actually divides into two or more chapters.
-                if (!string.IsNullOrWhiteSpace(chapter.Heading) && chapterCount >= 2)
+                if (!string.IsNullOrWhiteSpace(chapter.Heading) && printHeadings)
                 {
                     if (chapterEmitted) body.AppendChild(PageBreak());
                     string? anchor = (tocIdx < tocEntries.Count) ? tocEntries[tocIdx].Anchor : null;
@@ -168,7 +170,7 @@ public sealed class DocxRenderer : IManuscriptRenderer
                             var nextStartsChapter = b == chapter.Blocks.Count - 1
                                 && c + 1 < manuscript.Chapters.Count
                                 && !string.IsNullOrWhiteSpace(manuscript.Chapters[c + 1].Heading)
-                                && chapterCount >= 2;
+                                && printHeadings;
                             if (!nextStartsChapter) body.AppendChild(PageBreak());
                             break;
                         }
