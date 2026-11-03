@@ -103,6 +103,14 @@ public sealed class MarkdownRenderer : IManuscriptRenderer
                 md.AppendLine(prefix + "$$");
                 md.AppendLine(prefix.TrimEnd());
                 break;
+            case ImageBlock image:
+            {
+                var title = image.Title is null ? "" : $" \"{image.Title.Replace("\"", "\\\"")}\"";
+                var src = image.Source.Contains(' ') || image.Source.Contains(')') ? $"<{image.Source}>" : image.Source;
+                md.AppendLine($"{prefix}![{image.Alt}]({src}{title})");
+                md.AppendLine(prefix.TrimEnd());
+                break;
+            }
             case RuleBlock:
                 md.AppendLine(prefix + "---");
                 md.AppendLine(prefix.TrimEnd());

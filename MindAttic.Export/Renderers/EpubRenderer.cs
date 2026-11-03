@@ -263,6 +263,10 @@ public sealed class EpubRenderer : IManuscriptRenderer
                 sb.AppendLine($"""<p class="script {cls}">{RenderInline(script.Text.Trim())}</p>""");
                 break;
             }
+            case ImageBlock image:
+                // EPUB does not embed figures yet; name the missing figure rather than drop it.
+                sb.AppendLine($"""<p class="rule"><i>[Figure: {Esc(PdfRenderer.AltOrSource(image))}]</i></p>""");
+                break;
             case MarkerBlock:
                 break;
         }

@@ -1,3 +1,4 @@
+using MindAttic.Export.Images;
 using MindAttic.Export.Model;
 using MindAttic.Export.Text;
 using QuestPDF.Fluent;
@@ -43,6 +44,9 @@ public sealed class PdfRenderer : IManuscriptRenderer
         float marginTop = 72f, marginBottom = 72f;
         float marginLeft = trade ? 54f : screenplay ? 108f : 72f, marginRight = trade ? 54f : 72f;
         var lineHeight = screenplay ? 1.0f : 1.4f;
+        // Figures fit the text block, leaving a fifth of its height for a caption beside them.
+        var figures = new Figures(options.ImageResolver ?? DefaultImageResolver.Instance,
+            trim.Width - marginLeft - marginRight, (trim.Height - marginTop - marginBottom) * 0.8f);
 
         var toc = options.IncludeToc && chapters.Count(c => !string.IsNullOrWhiteSpace(c.Heading)) >= 2;
         string SectionId(int i) => $"chapter-{i + 1:D3}";
@@ -120,7 +124,7 @@ public sealed class PdfRenderer : IManuscriptRenderer
                             heading.PaddingBottom(18).AlignCenter().Text(chapter.Heading).FontSize(16).Bold();
                         }
                         foreach (var block in chapter.Blocks)
-                            AppendBlock(col, block, font);
+                            AppendBlock(col, block, font, figures);
                     });
                     p.Footer().AlignCenter().Text(t =>
                     {
@@ -142,7 +146,7 @@ public sealed class PdfRenderer : IManuscriptRenderer
         document.GeneratePdf(path);
     }
 
-    private static void AppendBlock(ColumnDescriptor col, Block block, string font)
+    private static void AppendBlock(ColumnDescriptor col, Block block, string font, Figures figures)
     {
         switch (block)
         {
@@ -222,7 +226,7 @@ public sealed class PdfRenderer : IManuscriptRenderer
             case QuoteBlock q:
                 col.Item().PaddingLeft(24).PaddingRight(24).PaddingVertical(4).Column(inner =>
                 {
-                    foreach (var b in q.Blocks) AppendBlock(inner, b, font);
+                    foreach (var b in q.Blocks) AppendBlock(inner, b, font, figures);
                 });
                 break;
 
@@ -299,10 +303,31 @@ public sealed class PdfRenderer : IManuscriptRenderer
                 break;
             }
 
+            case ImageBlock image:
+            {
+                var data = figures.Resolver.Resolve(image);
+                if (data is null)
+                {
+                    // Never drop a figure silently: say what is missing where it belongs.
+                    col.Item().PaddingVertical(6).AlignCenter().Text($"[Figure: {AltOrSource(image)}]").Italic();
+                    break;
+                }
+                var (w, h) = ImageLayout.Fit(data, figures.MaxWidth, figures.MaxHeight);
+                var box = col.Item().PaddingVertical(6).AlignCenter().Width((float)w).Height((float)h);
+                if (data.Kind == ImageKind.Svg) box.Svg(SvgImage.FromText(System.Text.Encoding.UTF8.GetString(data.Bytes)));
+                else box.Image(data.Bytes).FitArea();
+                break;
+            }
+
             case MarkerBlock:
                 break;
         }
     }
+
+    private sealed record Figures(IImageResolver Resolver, float MaxWidth, float MaxHeight);
+
+    internal static string AltOrSource(ImageBlock image) =>
+        string.IsNullOrWhiteSpace(image.Alt) ? image.Source : image.Alt.Trim();
 
     /// <summary>Emit a paragraph into a QuestPDF text block, rendering the inline markers
     /// (<see cref="ProseInline"/>) as styled runs (mirrors the .docx export).</summary>

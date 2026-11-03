@@ -100,6 +100,10 @@ public sealed class TextRenderer : IManuscriptRenderer
                 sb.AppendLine(indent + ScriptLine(script));
                 sb.AppendLine();
                 break;
+            case ImageBlock image:
+                sb.AppendLine(indent + $"[Figure: {PdfRenderer.AltOrSource(image)}]");
+                sb.AppendLine();
+                break;
             case MarkerBlock:
                 break;
         }

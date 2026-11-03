@@ -1,10 +1,13 @@
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using MindAttic.Export.Images;
 using MindAttic.Export.Metadata;
 using MindAttic.Export.Model;
 using MindAttic.Export.Text;
 using WText = DocumentFormat.OpenXml.Wordprocessing.Text;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 using TableRow = DocumentFormat.OpenXml.Wordprocessing.TableRow;
 
 namespace MindAttic.Export.Renderers;
@@ -88,6 +91,7 @@ public sealed class DocxRenderer : IManuscriptRenderer
             }
 
             var body = main.Document.AppendChild(new Body());
+            var figures = new FigureWriter(main, options, w);
 
             // ── Title page ──
             body.AppendChild(w.BlankLines(8));
@@ -184,6 +188,10 @@ public sealed class DocxRenderer : IManuscriptRenderer
                             body.AppendChild(w.Script(s));
                             break;
 
+                        case ImageBlock image:
+                            body.AppendChild(figures.Figure(image));
+                            break;
+
                         default:
                             foreach (var el in w.DocumentBlock(block, ref wordCount)) body.AppendChild(el);
                             break;
@@ -256,6 +264,106 @@ public sealed class DocxRenderer : IManuscriptRenderer
 
     private static readonly System.Text.RegularExpressions.Regex XmlIllegalChars =
         new(@"[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Figures as inline pictures in their own centered paragraph, scaled to fit the text block.
+    /// A raster image is embedded as is. An SVG is embedded as SVG (Word 2016+ draws it as
+    /// vector) with a PNG rendering beside it as the <c>a:blip</c> every other reader shows.
+    /// </summary>
+    private sealed class FigureWriter(MainDocumentPart main, ExportOptions options, Writer w)
+    {
+        private const long EmuPerPoint = 12700;
+        private readonly IImageResolver resolver = options.ImageResolver ?? DefaultImageResolver.Instance;
+        private uint nextId = 1;
+
+        // Text block in points: Letter 6.5" (screenplay 6"), trade 6" less 1" of margins and the
+        // widest KDP gutter; a fifth of the height left for a caption.
+        private double MaxWidth => options.Profile switch
+        {
+            PageProfile.Trade6x9 => (8640 - 1440 - 1260) / 20.0,
+            PageProfile.Screenplay => (12240 - 2160 - 1440) / 20.0,
+            _ => (12240 - 2880) / 20.0
+        };
+        private double MaxHeight => (options.Profile == PageProfile.Trade6x9 ? (12960 - 2880) : (15840 - 2880)) / 20.0 * 0.8;
+
+        public Paragraph Figure(ImageBlock image)
+        {
+            var data = resolver.Resolve(image);
+            if (data is null)
+                return w.Centered($"[Figure: {PdfRenderer.AltOrSource(image)}]", Body12, italic: true);
+
+            var (wPt, hPt) = ImageLayout.Fit(data, MaxWidth, MaxHeight);
+            var cx = (long)Math.Round(wPt * EmuPerPoint);
+            var cy = (long)Math.Round(hPt * EmuPerPoint);
+
+            string blipId;
+            string? svgId = null;
+            if (data.Kind == ImageKind.Svg)
+            {
+                var svgPart = main.AddImagePart(ImagePartType.Svg);
+                using (var ms = new MemoryStream(data.Bytes)) svgPart.FeedData(ms);
+                svgId = main.GetIdOfPart(svgPart);
+                blipId = AddPart(ImagePartType.Png, ImageLayout.SvgToPng(data.Bytes, wPt, hPt));
+            }
+            else
+            {
+                blipId = AddPart(data.Kind switch
+                {
+                    ImageKind.Jpeg => ImagePartType.Jpeg,
+                    ImageKind.Gif => ImagePartType.Gif,
+                    _ => ImagePartType.Png
+                }, data.Bytes);
+            }
+
+            var id = nextId++;
+            var alt = XmlIllegalChars.Replace(image.Alt ?? "", "");
+            var name = $"Figure {id}";
+            var blip = new DocumentFormat.OpenXml.Drawing.Blip { Embed = blipId };
+            if (svgId is not null)
+                blip.AppendChild(new DocumentFormat.OpenXml.Drawing.BlipExtensionList(
+                    new DocumentFormat.OpenXml.Drawing.BlipExtension(
+                        new DocumentFormat.OpenXml.Office2019.Drawing.SVG.SVGBlip { Embed = svgId })
+                    { Uri = "{96DAC541-7B7A-43D3-8B79-37D633B846F1}" }));
+
+            var drawing = new Drawing(
+                new DW.Inline(
+                    new DW.Extent { Cx = cx, Cy = cy },
+                    new DW.EffectExtent { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
+                    new DW.DocProperties { Id = id, Name = name, Description = alt },
+                    new DW.NonVisualGraphicFrameDrawingProperties(
+                        new DocumentFormat.OpenXml.Drawing.GraphicFrameLocks { NoChangeAspect = true }),
+                    new DocumentFormat.OpenXml.Drawing.Graphic(
+                        new DocumentFormat.OpenXml.Drawing.GraphicData(
+                            new PIC.Picture(
+                                new PIC.NonVisualPictureProperties(
+                                    new PIC.NonVisualDrawingProperties { Id = 0U, Name = name, Description = alt },
+                                    new PIC.NonVisualPictureDrawingProperties()),
+                                new PIC.BlipFill(blip,
+                                    new DocumentFormat.OpenXml.Drawing.Stretch(new DocumentFormat.OpenXml.Drawing.FillRectangle())),
+                                new PIC.ShapeProperties(
+                                    new DocumentFormat.OpenXml.Drawing.Transform2D(
+                                        new DocumentFormat.OpenXml.Drawing.Offset { X = 0L, Y = 0L },
+                                        new DocumentFormat.OpenXml.Drawing.Extents { Cx = cx, Cy = cy }),
+                                    new DocumentFormat.OpenXml.Drawing.PresetGeometry(new DocumentFormat.OpenXml.Drawing.AdjustValueList())
+                                    { Preset = DocumentFormat.OpenXml.Drawing.ShapeTypeValues.Rectangle })))
+                        { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" }))
+                { DistanceFromTop = 0U, DistanceFromBottom = 0U, DistanceFromLeft = 0U, DistanceFromRight = 0U });
+
+            return new Paragraph(
+                new ParagraphProperties(
+                    new KeepLines(),
+                    new SpacingBetweenLines { Before = "120", After = "160" },
+                    new Justification { Val = JustificationValues.Center }),
+                new Run(drawing));
+        }
+
+        private string AddPart(PartTypeInfo type, byte[] bytes)
+        {
+            var part = main.AddImagePart(type);
+            using (var ms = new MemoryStream(bytes)) part.FeedData(ms);
+            return main.GetIdOfPart(part);
+        }
+    }
 
     /// <summary>Element builders bound to one base font.</summary>
     private sealed class Writer(string serif)

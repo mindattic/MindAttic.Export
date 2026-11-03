@@ -45,6 +45,11 @@ public sealed record MarkdownReaderOptions
     /// level-1 and level-2 sections become headings. For single-document reports such as Prose
     /// book reports.</summary>
     public bool FirstHeadingIsTitle { get; init; }
+
+    /// <summary>Directory relative image paths resolve against (stored on each
+    /// <see cref="ImageBlock"/>). <see cref="MarkdownManuscriptReader.ReadFiles"/> sets it to each
+    /// file's own directory; null leaves relative paths to resolve against the working directory.</summary>
+    public string? BaseDirectory { get; init; }
 }
 
 /// <summary>
@@ -73,7 +78,8 @@ public static class MarkdownManuscriptReader
         options ??= new MarkdownReaderOptions();
         var chapters = new List<Chapter>();
         foreach (var path in paths)
-            chapters.AddRange(ReadChapters(File.ReadAllText(path), options));
+            chapters.AddRange(ReadChapters(File.ReadAllText(path),
+                options with { BaseDirectory = Path.GetDirectoryName(Path.GetFullPath(path)) }));
         return info.ToManuscript(chapters);
     }
 
@@ -123,7 +129,7 @@ public static class MarkdownManuscriptReader
                     current.Blocks.Add(new Model.HeadingBlock(2, Raw(source, section.Inline), Spans(section.Inline)));
                     continue;
                 }
-                foreach (var converted in Convert(block, source, hanging)) current.Blocks.Add(converted);
+                foreach (var converted in Convert(block, source, hanging, options.BaseDirectory)) current.Blocks.Add(converted);
                 continue;
             }
             if (block is MdHeading { Level: 1 } h1)
@@ -140,7 +146,7 @@ public static class MarkdownManuscriptReader
                 current = new Chapter((string?)null);
                 chapters.Add(current);
             }
-            foreach (var converted in Convert(block, source, hanging)) current.Blocks.Add(converted);
+            foreach (var converted in Convert(block, source, hanging, options.BaseDirectory)) current.Blocks.Add(converted);
         }
         return (chapters, documentTitle);
     }
@@ -164,7 +170,7 @@ public static class MarkdownManuscriptReader
 
     // quoted: the block sits inside a block quote, so its continuation lines carry "> " markers
     // that are container syntax, not paragraph text.
-    private static IEnumerable<Block> Convert(Markdig.Syntax.Block block, string source, bool hanging, bool quoted = false)
+    private static IEnumerable<Block> Convert(Markdig.Syntax.Block block, string source, bool hanging, string? baseDir, bool quoted = false)
     {
         switch (block)
         {
@@ -184,6 +190,10 @@ public static class MarkdownManuscriptReader
                 yield return new Model.MathBlock(latex, LatexMath.ToSpans(latex));
                 break;
             }
+            // A paragraph that is nothing but one image is a figure.
+            case MdParagraph p when SoleImage(p.Inline) is { } image:
+                yield return new ImageBlock(image.Url ?? "", ImageAlt(image), string.IsNullOrEmpty(image.Title) ? null : image.Title, baseDir);
+                break;
             case MdParagraph p:
                 yield return new Paragraph(Raw(source, p.Inline, quoted), Spans(p.Inline), hanging ? ParagraphRole.Hanging : ParagraphRole.Body);
                 break;
@@ -197,7 +207,7 @@ public static class MarkdownManuscriptReader
                     var raw = new StringBuilder();
                     var spans = new List<ProseInline.Span>();
                     var extra = new List<Block>();
-                    AppendItem(item, source, raw, spans, extra, hanging, quoted);
+                    AppendItem(item, source, raw, spans, extra, hanging, baseDir, quoted);
                     items.Add(new Paragraph(raw.ToString(), spans));
                     if (extra.Count == 0) continue;
                     // A list item's code block, quote, table or math has no place in a flat item:
@@ -214,7 +224,7 @@ public static class MarkdownManuscriptReader
             case MdQuote quote:
             {
                 var inner = new List<Block>();
-                foreach (var child in quote) inner.AddRange(Convert(child, source, hanging, quoted: true));
+                foreach (var child in quote) inner.AddRange(Convert(child, source, hanging, baseDir, quoted: true));
                 yield return new Model.QuoteBlock(inner);
                 break;
             }
@@ -248,7 +258,7 @@ public static class MarkdownManuscriptReader
                 break;
             case ContainerBlock container:
                 foreach (var child in container)
-                    foreach (var converted in Convert(child, source, hanging, quoted))
+                    foreach (var converted in Convert(child, source, hanging, baseDir, quoted))
                         yield return converted;
                 break;
         }
@@ -258,7 +268,7 @@ public static class MarkdownManuscriptReader
     // ("a; b; c") rather than lost.
     // Any other child (code, quote, table, math) is converted into extra, to follow the item.
     private static void AppendItem(ListItemBlock item, string source, StringBuilder raw, List<ProseInline.Span> spans,
-                                   List<Block> extra, bool hanging, bool quoted)
+                                   List<Block> extra, bool hanging, string? baseDir, bool quoted)
     {
         foreach (var child in item)
         {
@@ -274,14 +284,36 @@ public static class MarkdownManuscriptReader
                 {
                     // The item's paragraph adds the space after the semicolon.
                     if (raw.Length > 0) { raw.Append(';'); spans.Add(new ProseInline.Span(";", ProseInline.Style.None)); }
-                    AppendItem(sub, source, raw, spans, extra, hanging, quoted);
+                    AppendItem(sub, source, raw, spans, extra, hanging, baseDir, quoted);
                 }
             }
             else
             {
-                extra.AddRange(Convert(child, source, hanging, quoted));
+                extra.AddRange(Convert(child, source, hanging, baseDir, quoted));
             }
         }
+    }
+
+    /// <summary>An image's alt text: its children as plain text (Walk skips images themselves).</summary>
+    private static string ImageAlt(LinkInline image)
+    {
+        var spans = new List<ProseInline.Span>();
+        foreach (var child in image) Walk(child, ProseInline.Style.None, spans);
+        return string.Concat(spans.Select(s => s.Text)).Trim();
+    }
+
+    /// <summary>The paragraph's only inline is an image (whitespace around it aside).</summary>
+    private static LinkInline? SoleImage(ContainerInline? inline)
+    {
+        LinkInline? image = null;
+        for (var child = inline?.FirstChild; child is not null; child = child.NextSibling)
+        {
+            if (child is LinkInline { IsImage: true } link && image is null) image = link;
+            else if (child is LiteralInline lit && lit.Content.IsEmptyOrWhitespace()) continue;
+            else if (child is LineBreakInline) continue;
+            else return null;
+        }
+        return image;
     }
 
     /// <summary>The paragraph's Markdown source on one line (soft breaks become spaces).</summary>

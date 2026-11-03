@@ -123,3 +123,12 @@ public enum ScriptElement
 
 /// <summary>One screenplay element. <see cref="Text"/> carries Prose inline markers.</summary>
 public sealed record ScriptBlock(ScriptElement Element, string Text) : Block;
+
+/// <summary>A figure: a Markdown image (<c>![alt](src "title")</c>) that stands alone in its
+/// paragraph. <see cref="Source"/> is kept exactly as written (a relative or absolute path, a
+/// <c>file:</c> URI, a <c>data:</c> URI with base64 bytes, or an app scheme such as
+/// <c>media:{uid}</c>); <see cref="BaseDirectory"/> is the directory of the Markdown file it came
+/// from, for resolving relative paths. The bytes are fetched at render time through
+/// <see cref="ExportOptions.ImageResolver"/>. DOCX and PDF embed the image (SVG stays vector,
+/// with a PNG fallback in DOCX); the other formats write the alt text or the Markdown back.</summary>
+public sealed record ImageBlock(string Source, string Alt, string? Title = null, string? BaseDirectory = null) : Block;

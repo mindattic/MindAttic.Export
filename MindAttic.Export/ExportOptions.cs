@@ -46,6 +46,11 @@ public sealed record ExportOptions
     /// reproducible output in tests and verification. Null uses the current UTC time.</summary>
     public DateTime? FixedTimestamp { get; init; }
 
+    /// <summary>Fetches figure bytes (<see cref="Model.ImageBlock"/>) for docx and pdf. Null uses
+    /// <see cref="Images.DefaultImageResolver"/> (files and <c>data:</c> URIs); supply one to serve
+    /// images from an application store such as MindAttic.Media.</summary>
+    public Images.IImageResolver? ImageResolver { get; init; }
+
     public static ExportOptions ProseBook { get; } = new();
 
     public static ExportOptions Document { get; } = new()

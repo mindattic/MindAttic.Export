@@ -40,13 +40,39 @@ await ArtifactWriter.WriteJsonAsync(downloads,
 
 | Namespace | Contents |
 |---|---|
-| `MindAttic.Export.Model` | `Manuscript`, `Chapter`, blocks (paragraph, sub-heading, heading, tenet, marker, list, quote, table, math, rule), glossary |
+| `MindAttic.Export.Model` | `Manuscript`, `Chapter`, blocks (paragraph, sub-heading, heading, tenet, marker, list, quote, table, math, rule, image), glossary |
 | `MindAttic.Export.Renderers` | `DocxRenderer`, `EpubRenderer`, `PdfRenderer`, `TextRenderer`, `MarkdownRenderer` |
 | `MindAttic.Export.Markdown` | `MarkdownManuscriptReader` (chapters, document blocks, math; report mode) |
+| `MindAttic.Export.Images` | `IImageResolver`, `DefaultImageResolver` (files, `data:` URIs), `ImageLayout` (natural size, fit, SVG to PNG) |
 | `MindAttic.Export.Text` | `ProseInline` (the inline-markup parser shared with the Prose editor), `LatexMath` |
 | `MindAttic.Export.Paths` | `ExportPaths` (file-name sanitising, bundle names), `ExportArchive` (archive, never delete; versions) |
 | `MindAttic.Export.Metadata` | `ReadingInfo` (description.txt reading-time line, keywords.txt) |
 | `MindAttic.Export.Artifacts` | `ArtifactWriter`, `ArtifactOptions`, `ArtifactNames` |
+
+### Figures
+
+A paragraph that is nothing but a Markdown image (`![Alt text](figures/fig-02.svg)`) is a figure (`ImageBlock`). DOCX and PDF embed it, centered and scaled down (never up) to fit the text block, at the natural size the file declares: SVG `width`/`height` in any CSS unit (else its `viewBox` in CSS pixels), PNG and JPEG at their stored dpi (96 when absent). SVG stays vector in both: PDF draws it, and DOCX stores the SVG with a PNG rendering as the fallback for readers that cannot draw SVG. Markdown writes the image back; TXT and EPUB print `[Figure: Alt text]`. A figure that cannot be resolved prints the same line in DOCX and PDF instead of vanishing. Captions are ordinary paragraphs around the image (APA: a bold **Figure N** line and an italic title above it).
+
+Sources are resolved at render time by `ExportOptions.ImageResolver`. The default reads paths (relative ones against the Markdown file's own directory), `file:` URIs and `data:` URIs (base64 or percent-encoded); it never downloads `http(s):` sources. To keep images in an application store, for example as base64 rows in MindAttic.Media, write `![Alt](media:{uid})` and chain a resolver in front of the default:
+
+```csharp
+sealed class MediaImageResolver(IMediaStore media) : IImageResolver
+{
+    public ImageData? Resolve(ImageBlock image)
+    {
+        if (!image.Source.StartsWith("media:") || !Guid.TryParse(image.Source[6..], out var uid)) return null;
+        // Renderers are synchronous.
+        if (media.GetAsync(uid).GetAwaiter().GetResult() is not { } found) return null;
+        using (found.Content) using (var bytes = new MemoryStream())
+        {
+            found.Content.CopyTo(bytes);
+            return ImageData.FromBytes(bytes.ToArray());
+        }
+    }
+}
+
+var options = ExportOptions.Document with { ImageResolver = new DefaultImageResolver(new MediaImageResolver(media)) };
+```
 
 ## CLI
 
