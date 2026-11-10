@@ -49,3 +49,10 @@ _Nothing recorded yet._
 | M.EXPT-T26 | 2026-10-21 | docs | closed | Update USER_STORIES.md | — |
 | M.EXPT-T27 | 2026-10-22 | docs | closed | Update USER_STORIES.md | — |
 | M.EXPT-T28 | 2026-10-24 | docs | closed | Update USER_STORIES.md | — |
+| M.EXPT-T29 | 2026-11-02 | docs | open | Adopt MindAttic.Agency docs-site pipeline, publish README to GitHub Pages (HOUSE-LAW-14) | — |
+| M.EXPT-T30 | 2026-11-02 | fix | closed | Bughunt sweep, two passes: find and fix real bugs across tracked source (user request 2026-11-02) | — |
+| M.EXPT-T31 | 2026-11-02 | feature | closed | Support images (SVG with PNG fallback) in DOCX and PDF export; exporter currently drops them silently (user request 2026-11-02) | — |
+| M.EXPT-T32 | 2026-11-02 | feature | open | Carry Markdown images through every renderer: ImageBlock from ![alt](path) with APA figure captions; SVG in PDF (QuestPDF .Svg), SVG plus PNG fallback in DOCX, img in EPUB, pass-through in MD, placeholder in TXT (needed by SET-T32, the dissertation's 23 figures) | — |
+| M.EXPT-T33 | 2026-11-02 | fix | closed | Fix the open items the 2026-11-02 bughunt left for decision (one-chapter docs keep their heading in .docx, empty EPUB toc gets a valid entry) | — |
+| M.EXPT-T34 | 2026-11-03 | fix | open | Figure captions split from their image at page breaks: keep the bold 'Figure N' label and italic title paragraphs with the following image in PDF (QuestPDF ShowEntire/unbreakable column) and DOCX (KeepNext on the two caption paragraphs); seen in SET V22 p. 72-73 and p. 10-11 | — |
+| M.EXPT-T35 | 2026-11-10 | chore | closed | Crash recovery: commit the command-catalog sync (.agent/commands/*.md) and regenerated docs/USER_STORIES.md left uncommitted by the session crash | — |
