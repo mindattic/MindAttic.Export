@@ -9,15 +9,24 @@ public class ExportArchiveTests : TempDirTestBase
 {
     private static readonly Regex StampSuffix = new(@"__\d{17}$");
 
-    private string Dir => Temp.Path;
+    // nodeDir and archiveDir are siblings under Temp, matching how Prose's ExportCleanupService
+    // keeps the archive tree OUT of the live bundle folder — not a nested "Dir\Archives".
+    private string Dir => Path.Combine(Temp.Path, "Node");
+    private string ArchiveDir => Path.Combine(Temp.Path, "Archives");
 
-    private void Touch(string name, string content = "x") => File.WriteAllText(Path.Combine(Dir, name), content);
+    private void Touch(string name, string content = "x")
+    {
+        Directory.CreateDirectory(Dir);
+        File.WriteAllText(Path.Combine(Dir, name), content);
+    }
 
-    private string[] Live() => Directory.GetFiles(Dir).Select(f => Path.GetFileName(f)).OrderBy(n => n, StringComparer.Ordinal).ToArray();
+    private string[] Live() => Directory.Exists(Dir)
+        ? Directory.GetFiles(Dir).Select(f => Path.GetFileName(f)).OrderBy(n => n, StringComparer.Ordinal).ToArray()
+        : [];
 
     private string[] Archived(int v) =>
-        Directory.Exists(Path.Combine(Dir, "Archives", $"v{v}"))
-            ? Directory.GetFiles(Path.Combine(Dir, "Archives", $"v{v}")).Select(f => Path.GetFileName(f)).OrderBy(n => n, StringComparer.Ordinal).ToArray()
+        Directory.Exists(Path.Combine(ArchiveDir, $"v{v}"))
+            ? Directory.GetFiles(Path.Combine(ArchiveDir, $"v{v}")).Select(f => Path.GetFileName(f)).OrderBy(n => n, StringComparer.Ordinal).ToArray()
             : [];
 
     // ── ExtractVersion ───────────────────────────────────────────────────────
@@ -67,37 +76,37 @@ public class ExportArchiveTests : TempDirTestBase
 
     [Test]
     public void CurrentVersion_missing_folder_is_zero() =>
-        Assert.That(ExportArchive.CurrentVersion(Path.Combine(Dir, "nope")), Is.Zero);
+        Assert.That(ExportArchive.CurrentVersion(Path.Combine(Dir, "nope"), ArchiveDir), Is.Zero);
 
     [Test]
-    public void CurrentVersion_empty_folder_is_zero() => Assert.That(ExportArchive.CurrentVersion(Dir), Is.Zero);
+    public void CurrentVersion_empty_folder_is_zero() => Assert.That(ExportArchive.CurrentVersion(Dir, ArchiveDir), Is.Zero);
 
     [Test]
     public void CurrentVersion_reads_live_names()
     {
         Touch("SET V3.docx"); Touch("SET V12.pdf"); Touch("description.txt"); Touch("SET V9.md");
-        Assert.That(ExportArchive.CurrentVersion(Dir), Is.EqualTo(12));
+        Assert.That(ExportArchive.CurrentVersion(Dir, ArchiveDir), Is.EqualTo(12));
     }
 
     [Test]
     public void CurrentVersion_reads_archive_folders()
     {
         Touch("SET V3.docx");
-        Directory.CreateDirectory(Path.Combine(Dir, "Archives", "v17"));
-        Directory.CreateDirectory(Path.Combine(Dir, "Archives", "V20"));
-        Directory.CreateDirectory(Path.Combine(Dir, "Archives", "v20b"));
-        Directory.CreateDirectory(Path.Combine(Dir, "Archives", "old"));
-        Assert.That(ExportArchive.CurrentVersion(Dir), Is.EqualTo(20));
+        Directory.CreateDirectory(Path.Combine(ArchiveDir, "v17"));
+        Directory.CreateDirectory(Path.Combine(ArchiveDir, "V20"));
+        Directory.CreateDirectory(Path.Combine(ArchiveDir, "v20b"));
+        Directory.CreateDirectory(Path.Combine(ArchiveDir, "old"));
+        Assert.That(ExportArchive.CurrentVersion(Dir, ArchiveDir), Is.EqualTo(20));
     }
 
     [Test]
     public void CurrentVersion_ignores_files_inside_archives_and_nested_folders()
     {
-        Directory.CreateDirectory(Path.Combine(Dir, "Archives", "v2"));
-        File.WriteAllText(Path.Combine(Dir, "Archives", "v2", "SET V50.docx"), "x");
+        Directory.CreateDirectory(Path.Combine(ArchiveDir, "v2"));
+        File.WriteAllText(Path.Combine(ArchiveDir, "v2", "SET V50.docx"), "x");
         Directory.CreateDirectory(Path.Combine(Dir, "Other"));
         File.WriteAllText(Path.Combine(Dir, "Other", "SET V60.docx"), "x");
-        Assert.That(ExportArchive.CurrentVersion(Dir), Is.EqualTo(2));
+        Assert.That(ExportArchive.CurrentVersion(Dir, ArchiveDir), Is.EqualTo(2));
     }
 
     public static IEnumerable<TestCaseData> CurrentVersionSeeds() =>
@@ -117,11 +126,11 @@ public class ExportArchiveTests : TempDirTestBase
         for (var i = r.Next(0, 5); i > 0; i--)
         {
             var v = r.Next(1, 500);
-            Directory.CreateDirectory(Path.Combine(Dir, "Archives", $"v{v}"));
+            Directory.CreateDirectory(Path.Combine(ArchiveDir, $"v{v}"));
             max = Math.Max(max, v);
         }
         Touch("description.txt");
-        Assert.That(ExportArchive.CurrentVersion(Dir), Is.EqualTo(max));
+        Assert.That(ExportArchive.CurrentVersion(Dir, ArchiveDir), Is.EqualTo(max));
     }
 
     // ── Clean ────────────────────────────────────────────────────────────────
@@ -130,18 +139,18 @@ public class ExportArchiveTests : TempDirTestBase
     public void Clean_moves_versioned_files_into_their_version_folder()
     {
         Touch("SET V3.docx", "docx3"); Touch("SET V3.pdf", "pdf3"); Touch("SET V2.md", "md2");
-        ExportArchive.Clean(Dir);
+        ExportArchive.Clean(Dir, ArchiveDir);
         Assert.That(Live(), Is.Empty);
         Assert.That(Archived(3), Is.EqualTo(new[] { "SET V3.docx", "SET V3.pdf" }));
         Assert.That(Archived(2), Is.EqualTo(new[] { "SET V2.md" }));
-        Assert.That(File.ReadAllText(Path.Combine(Dir, "Archives", "v3", "SET V3.docx")), Is.EqualTo("docx3"));
+        Assert.That(File.ReadAllText(Path.Combine(ArchiveDir, "v3", "SET V3.docx")), Is.EqualTo("docx3"));
     }
 
     [Test]
     public void Clean_uses_the_fallback_version_for_unversioned_files()
     {
         Touch("description.txt"); Touch("keywords.txt"); Touch("SET V4.txt");
-        ExportArchive.Clean(Dir, fallbackVersion: 4);
+        ExportArchive.Clean(Dir, ArchiveDir, fallbackVersion: 4);
         Assert.That(Archived(4), Is.EqualTo(new[] { "SET V4.txt", "description.txt", "keywords.txt" }));
         Assert.That(Live(), Is.Empty);
     }
@@ -150,7 +159,7 @@ public class ExportArchiveTests : TempDirTestBase
     public void Clean_without_fallback_archives_unversioned_files_under_v0()
     {
         Touch("notes.txt");
-        ExportArchive.Clean(Dir);
+        ExportArchive.Clean(Dir, ArchiveDir);
         Assert.That(Archived(0), Is.EqualTo(new[] { "notes.txt" }));
     }
 
@@ -160,7 +169,7 @@ public class ExportArchiveTests : TempDirTestBase
     public void Clean_keeps_the_cover_live_but_still_archives_a_copy(string cover)
     {
         Touch(cover, "img"); Touch("SET V1.docx");
-        ExportArchive.Clean(Dir, 1);
+        ExportArchive.Clean(Dir, ArchiveDir, 1);
         Assert.That(Live(), Is.EqualTo(new[] { cover }));
         Assert.That(Archived(1), Does.Contain(cover));
     }
@@ -168,25 +177,25 @@ public class ExportArchiveTests : TempDirTestBase
     [Test]
     public void Clean_does_not_overwrite_an_existing_archive_copy()
     {
-        Directory.CreateDirectory(Path.Combine(Dir, "Archives", "v5"));
-        File.WriteAllText(Path.Combine(Dir, "Archives", "v5", "SET V5.docx"), "old");
+        Directory.CreateDirectory(Path.Combine(ArchiveDir, "v5"));
+        File.WriteAllText(Path.Combine(ArchiveDir, "v5", "SET V5.docx"), "old");
         Touch("SET V5.docx", "new");
-        ExportArchive.Clean(Dir);
+        ExportArchive.Clean(Dir, ArchiveDir);
         var files = Archived(5);
         Assert.That(files, Has.Length.EqualTo(2));
-        Assert.That(File.ReadAllText(Path.Combine(Dir, "Archives", "v5", "SET V5.docx")), Is.EqualTo("old"));
+        Assert.That(File.ReadAllText(Path.Combine(ArchiveDir, "v5", "SET V5.docx")), Is.EqualTo("old"));
         var stamped = files.Single(f => f != "SET V5.docx");
         Assert.That(Path.GetExtension(stamped), Is.EqualTo(".docx"));
         Assert.That(StampSuffix.IsMatch(Path.GetFileNameWithoutExtension(stamped)), Is.True, stamped);
         Assert.That(stamped, Does.StartWith("SET V5__"));
-        Assert.That(File.ReadAllText(Path.Combine(Dir, "Archives", "v5", stamped)), Is.EqualTo("new"));
+        Assert.That(File.ReadAllText(Path.Combine(ArchiveDir, "v5", stamped)), Is.EqualTo("new"));
     }
 
     [Test]
     public void Clean_creates_a_missing_folder()
     {
         var nested = Path.Combine(Dir, "a", "b");
-        ExportArchive.Clean(nested);
+        ExportArchive.Clean(nested, ArchiveDir);
         Assert.That(Directory.Exists(nested), Is.True);
     }
 
@@ -195,7 +204,7 @@ public class ExportArchiveTests : TempDirTestBase
     {
         Directory.CreateDirectory(Path.Combine(Dir, "Images"));
         File.WriteAllText(Path.Combine(Dir, "Images", "SET V1.png"), "x");
-        ExportArchive.Clean(Dir);
+        ExportArchive.Clean(Dir, ArchiveDir);
         Assert.That(File.Exists(Path.Combine(Dir, "Images", "SET V1.png")), Is.True);
     }
 
@@ -205,7 +214,7 @@ public class ExportArchiveTests : TempDirTestBase
     public void ArchiveCurrent_copies_every_live_file_and_keeps_them_live()
     {
         Touch("SET V6.docx"); Touch("SET V6.pdf"); Touch("description.txt"); Touch("cover.jpg");
-        ExportArchive.ArchiveCurrent(Dir, 6);
+        ExportArchive.ArchiveCurrent(Dir, ArchiveDir, 6);
         Assert.That(Live(), Is.EqualTo(new[] { "SET V6.docx", "SET V6.pdf", "cover.jpg", "description.txt" }));
         Assert.That(Archived(6), Is.EqualTo(Live()));
     }
@@ -214,7 +223,7 @@ public class ExportArchiveTests : TempDirTestBase
     public void ArchiveCurrent_uses_the_given_version_not_the_name()
     {
         Touch("SET V2.docx");
-        ExportArchive.ArchiveCurrent(Dir, 9);
+        ExportArchive.ArchiveCurrent(Dir, ArchiveDir, 9);
         Assert.That(Archived(9), Is.EqualTo(new[] { "SET V2.docx" }));
         Assert.That(Archived(2), Is.Empty);
     }
@@ -223,23 +232,23 @@ public class ExportArchiveTests : TempDirTestBase
     public void ArchiveCurrent_twice_suffixes_the_second_copy()
     {
         Touch("SET V1.docx", "first");
-        ExportArchive.ArchiveCurrent(Dir, 1);
+        ExportArchive.ArchiveCurrent(Dir, ArchiveDir, 1);
         File.WriteAllText(Path.Combine(Dir, "SET V1.docx"), "second");
-        ExportArchive.ArchiveCurrent(Dir, 1);
+        ExportArchive.ArchiveCurrent(Dir, ArchiveDir, 1);
         var files = Archived(1);
         Assert.That(files, Has.Length.EqualTo(2));
-        Assert.That(File.ReadAllText(Path.Combine(Dir, "Archives", "v1", "SET V1.docx")), Is.EqualTo("first"));
+        Assert.That(File.ReadAllText(Path.Combine(ArchiveDir, "v1", "SET V1.docx")), Is.EqualTo("first"));
         var stamped = files.Single(f => f != "SET V1.docx");
         Assert.That(StampSuffix.IsMatch(Path.GetFileNameWithoutExtension(stamped)), Is.True, stamped);
-        Assert.That(File.ReadAllText(Path.Combine(Dir, "Archives", "v1", stamped)), Is.EqualTo("second"));
+        Assert.That(File.ReadAllText(Path.Combine(ArchiveDir, "v1", stamped)), Is.EqualTo("second"));
     }
 
     [Test]
     public void ArchiveCurrent_on_empty_folder_creates_the_version_folder()
     {
-        ExportArchive.ArchiveCurrent(Dir, 3);
-        Assert.That(Directory.Exists(Path.Combine(Dir, "Archives", "v3")), Is.True);
-        Assert.That(ExportArchive.CurrentVersion(Dir), Is.EqualTo(3));
+        ExportArchive.ArchiveCurrent(Dir, ArchiveDir, 3);
+        Assert.That(Directory.Exists(Path.Combine(ArchiveDir, "v3")), Is.True);
+        Assert.That(ExportArchive.CurrentVersion(Dir, ArchiveDir), Is.EqualTo(3));
     }
 
     [Test]
@@ -247,16 +256,16 @@ public class ExportArchiveTests : TempDirTestBase
     {
         for (var v = 1; v <= 4; v++)
         {
-            ExportArchive.Clean(Dir, v - 1 == 0 ? null : v - 1);
+            ExportArchive.Clean(Dir, ArchiveDir, v - 1 == 0 ? null : v - 1);
             Touch($"SET V{v}.docx", $"d{v}"); Touch($"SET V{v}.md", $"m{v}"); Touch("description.txt", $"desc{v}");
-            ExportArchive.ArchiveCurrent(Dir, v);
+            ExportArchive.ArchiveCurrent(Dir, ArchiveDir, v);
         }
         Assert.That(Live(), Is.EqualTo(new[] { "SET V4.docx", "SET V4.md", "description.txt" }));
         for (var v = 1; v <= 4; v++)
         {
-            Assert.That(File.ReadAllText(Path.Combine(Dir, "Archives", $"v{v}", $"SET V{v}.docx")), Is.EqualTo($"d{v}"));
-            Assert.That(File.ReadAllText(Path.Combine(Dir, "Archives", $"v{v}", "description.txt")), Is.EqualTo($"desc{v}"));
+            Assert.That(File.ReadAllText(Path.Combine(ArchiveDir, $"v{v}", $"SET V{v}.docx")), Is.EqualTo($"d{v}"));
+            Assert.That(File.ReadAllText(Path.Combine(ArchiveDir, $"v{v}", "description.txt")), Is.EqualTo($"desc{v}"));
         }
-        Assert.That(ExportArchive.CurrentVersion(Dir), Is.EqualTo(4));
+        Assert.That(ExportArchive.CurrentVersion(Dir, ArchiveDir), Is.EqualTo(4));
     }
 }

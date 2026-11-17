@@ -61,9 +61,13 @@ public sealed class ManuscriptExporter
     public async Task<BundleResult> ExportBundleAsync(Manuscript manuscript, BundleRequest request, CancellationToken ct = default)
     {
         System.IO.Directory.CreateDirectory(request.Directory);
-        var previous = ExportArchive.CurrentVersion(request.Directory);
+        // Nested Archives\ under the bundle folder, same as before this method took an explicit
+        // archiveDir — this generic path has no universe-root concept to archive a sibling tree
+        // against (unlike Prose's own ExportCleanupService).
+        var archiveDir = Path.Combine(request.Directory, ExportArchive.ArchivesFolder);
+        var previous = ExportArchive.CurrentVersion(request.Directory, archiveDir);
         var version = request.Version ?? previous + 1;
-        if (request.Archive) ExportArchive.Clean(request.Directory, previous == 0 ? null : previous);
+        if (request.Archive) ExportArchive.Clean(request.Directory, archiveDir, previous == 0 ? null : previous);
 
         var files = new Dictionary<ExportFormat, string>();
         foreach (var format in request.Formats.Distinct())
@@ -83,7 +87,7 @@ public sealed class ManuscriptExporter
             keywordsPath = await ReadingInfo.WriteKeywordsAsync(request.Directory, manuscript.Keywords, ct);
         }
 
-        if (request.Archive) ExportArchive.ArchiveCurrent(request.Directory, version);
+        if (request.Archive) ExportArchive.ArchiveCurrent(request.Directory, archiveDir, version);
         return new BundleResult(version, files, descriptionPath, keywordsPath, wordCount);
     }
 
