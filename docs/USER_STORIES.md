@@ -57,4 +57,5 @@ _Nothing recorded yet._
 | M.EXPT-T34 | 2026-11-03 | fix | open | Figure captions split from their image at page breaks: keep the bold 'Figure N' label and italic title paragraphs with the following image in PDF (QuestPDF ShowEntire/unbreakable column) and DOCX (KeepNext on the two caption paragraphs); seen in SET V22 p. 72-73 and p. 10-11 | — |
 | M.EXPT-T35 | 2026-11-10 | chore | closed | Crash recovery: commit the command-catalog sync (.agent/commands/*.md) and regenerated docs/USER_STORIES.md left uncommitted by the session crash | — |
 | M.EXPT-T36 | 2026-11-10 | chore | closed | Adopt the shared docs-site pipeline: turn on GitHub Pages | — |
-| M.EXPT-T37 | 2026-11-16 | feature | open | ExportArchive: let the caller choose where archived versions live (archiveDir param), so Prose can archive to a sibling tree instead of nesting under the live bundle folder | PRS-T942 |
+| M.EXPT-T37 | 2026-11-16 | feature | closed | ExportArchive: let the caller choose where archived versions live (archiveDir param), so Prose can archive to a sibling tree instead of nesting under the live bundle folder | fad02f7 |
+| M.EXPT-T38 | 2026-11-17 | docs | closed | Update USER_STORIES.md | — |
