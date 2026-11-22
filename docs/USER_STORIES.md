@@ -59,3 +59,8 @@ _Nothing recorded yet._
 | M.EXPT-T36 | 2026-11-10 | chore | closed | Adopt the shared docs-site pipeline: turn on GitHub Pages | — |
 | M.EXPT-T37 | 2026-11-16 | feature | closed | ExportArchive: let the caller choose where archived versions live (archiveDir param), so Prose can archive to a sibling tree instead of nesting under the live bundle folder | fad02f7 |
 | M.EXPT-T38 | 2026-11-17 | docs | closed | Update USER_STORIES.md | — |
+| M.EXPT-T39 | 2026-11-22 | feature | open | Add ImageBlock to the model and parse ![alt](path) Markdown into it with APA figure caption (bold 'Figure N' label, italic title) in MindAttic.Export | — |
+| M.EXPT-T40 | 2026-11-22 | feature | open | Render ImageBlock in the PDF renderer, with SVG via QuestPDF .Svg and the figure caption | — |
+| M.EXPT-T41 | 2026-11-22 | feature | open | Render ImageBlock in the DOCX renderer: SVG plus PNG fallback, with figure caption | — |
+| M.EXPT-T42 | 2026-11-22 | feature | open | Render ImageBlock in EPUB as img, pass through in MD, and emit a placeholder in TXT | — |
+| M.EXPT-T43 | 2026-11-22 | docs | closed | 2026-11-22 morning | — |
