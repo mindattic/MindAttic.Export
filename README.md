@@ -53,7 +53,7 @@ await ArtifactWriter.WriteJsonAsync(downloads,
 
 A paragraph that is nothing but a Markdown image (`![Alt text](figures/fig-02.svg)`) is a figure (`ImageBlock`). DOCX and PDF embed it, centered and scaled down (never up) to fit the text block, at the natural size the file declares: SVG `width`/`height` in any CSS unit (else its `viewBox` in CSS pixels), PNG and JPEG at their stored dpi (96 when absent). SVG stays vector in both: PDF draws it, and DOCX stores the SVG with a PNG rendering as the fallback for readers that cannot draw SVG. Markdown writes the image back; TXT and EPUB print `[Figure: Alt text]`. A figure that cannot be resolved prints the same line in DOCX and PDF instead of vanishing. Captions are ordinary paragraphs around the image (APA: a bold **Figure N** line and an italic title above it).
 
-Sources are resolved at render time by `ExportOptions.ImageResolver`. The default reads paths (relative ones against the Markdown file's own directory), `file:` URIs and `data:` URIs (base64 or percent-encoded); it never downloads `http(s):` sources. To keep images in an application store, for example as base64 rows in MindAttic.Media, write `![Alt](media:{uid})` and chain a resolver in front of the default:
+Sources are resolved at render time by `ExportOptions.ImageResolver`. The default reads paths (relative ones against the Markdown file's own directory), `file:` URIs and `data:` URIs (base64 or percent-encoded); it never downloads `http(s):` sources. To keep images in an application store, for example as base64 rows in MindAttic.Storage, write `![Alt](media:{uid})` and chain a resolver in front of the default:
 
 ```csharp
 sealed class MediaImageResolver(IMediaStore media) : IImageResolver

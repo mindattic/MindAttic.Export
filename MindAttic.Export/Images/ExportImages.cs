@@ -42,7 +42,7 @@ public sealed record ImageData(byte[] Bytes, ImageKind Kind)
 /// <summary>
 /// Turns an <see cref="ImageBlock.Source"/> into bytes at render time. Renderers call it once per
 /// figure; a null result prints the alt text in place of the image. Implement it to serve images
-/// from an application store, for example <c>media:{uid}</c> sources read from MindAttic.Media's
+/// from an application store, for example <c>media:{uid}</c> sources read from MindAttic.Storage's
 /// <c>IMediaStore</c>, and chain <see cref="DefaultImageResolver"/> for files and <c>data:</c> URIs.
 /// </summary>
 public interface IImageResolver
